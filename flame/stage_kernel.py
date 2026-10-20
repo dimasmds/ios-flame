@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the deliberately limited Pixel early-console kernel patch set."""
+"""Stage the storage-free Pixel kernel and RAM-only init test inputs."""
 import argparse
 import hashlib
 import json
@@ -10,9 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def selected_inputs():
-    # Bootstrap, pthread and portable cryptographic providers only. Filesystem,
-    # AMFI replacements, and later Redmi peripheral drivers are excluded.
-    numbers = set(range(1, 21)) | {23, 27}
+    # Add mockfs and its RAM-device fixes, plus the no-entitlements AMFI
+    # interface needed to exec our ad-hoc signed static test program. HFS,
+    # UFS and later Redmi peripheral drivers remain excluded.
+    numbers = set(range(1, 26)) | {27}
     patches = sorted(p for p in (ROOT / "xnu/patches").glob("*.patch")
                      if int(p.name.split("-")[0]) in numbers)
     if len(patches) != len(numbers):
@@ -24,7 +25,8 @@ def selected_inputs():
                ("0019-stage-libpthread.sh", "0020-stage-bearssl.sh")]
     if not all(p.is_file() for p in helpers):
         raise SystemExit("Missing pinned core-provider staging script")
-    return sorted(patches + pixel + helpers, key=lambda p: p.name)
+    init = [ROOT / 'tools' / name for name in ('sweet-init.S', 'mkinit.py')]
+    return sorted(patches + pixel + helpers + init, key=lambda p: p.name)
 
 
 def verify(source):
@@ -38,12 +40,18 @@ def verify(source):
         "libkern/crypto/sweet_aes.c": "br_aes_ct_cbcenc_run",
         "libkern/crypto/corecrypto_sha2.c": "#define SHA256_DI()",
         "libkern/crypto/corecrypto_md5.c": "br_md5_init",
+        "config/MASTER.arm64.sweet": "fifo mockfs fs_compression",
+        "bsd/miscfs/mockfs/mockfs_fsnode.c": "kalloc_type(struct mockfs_fsnode,",
+        "bsd/miscfs/mockfs/mockfs_vfsops.c": "memdev_info.mi_mdev && memdev_info.mi_phys",
+        "bsd/kern/sweet_amfi.c": "SWEET AMFI: built-in interface registered (no entitlements)",
     }
     for path, text in required.items():
         if text not in (source / path).read_text():
             raise SystemExit(f"Pixel kernel check failed: {path}: missing {text}")
     if (source / "bsd/dev/sweet_ufs.c").exists():
         raise SystemExit("Storage driver present: this is not the intended early-console source tree")
+    if (source / 'bsd/sweet_hfs').exists():
+        raise SystemExit('HFS driver present: RAM-only mockfs profile expected')
     early = (source / "osfmk/arm64/sweet_early.c").read_text()
     if "(uintptr_t)0x9c400000" not in early:
         raise SystemExit("Early console is not aimed at the measured Pixel framebuffer")

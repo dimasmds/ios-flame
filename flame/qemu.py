@@ -52,7 +52,9 @@ def screen_milestones(screen):
             'stage14_visible': 'early I/O page tables ready' in screen,
             'waiting_for_root': ('Still waiting for root device' in screen or
                 ('Waiting on <dict' in unwrapped and 'IOMedia' in unwrapped and 'Apple_HFS' in unwrapped)),
-            'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen}
+            'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen,
+            'userspace_pid1_visible': 'SWEET userspace: init running as PID 1' in unwrapped,
+            'userspace_heartbeats': unwrapped.count('SWEET init: still alive')}
 
 
 def main():
@@ -60,22 +62,28 @@ def main():
     parser.add_argument('kernel', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--seconds', type=float, default=75)
+    parser.add_argument('--ram-init', type=Path, help='RAM-only static PID 1 test program')
     parser.add_argument('--reproduce-05b', action='store_true', help='Emulate only the exact known-broken 05b kernel')
     args = parser.parse_args()
     kernel, output = args.kernel.resolve(), args.output.resolve()
     kernel_hash = hashlib.sha256(kernel.read_bytes()).hexdigest()
     if args.reproduce_05b:
+        if args.ram_init:
+            raise ValueError('The 05b negative control must not contain a RAM root')
         if kernel_hash != '3237cef33de90789bcf2ff2e7e125977265b706c77a0eacfd1ee43c6c561cecb':
             raise ValueError('Reproduction option requires the exact 05b kernel')
     else:
         check_kernel(kernel)
-    if not 1 <= args.seconds <= 120:
-        raise ValueError('Simulation duration must be 1–120 seconds')
+    if not 1 <= args.seconds <= 240:
+        raise ValueError('Simulation duration must be 1–240 seconds')
     output.mkdir(parents=True, exist_ok=True)
     tree = output / 'qemu-only.adt'
     tree.write_bytes(adt.serialize(build_adt(qemu=True, seed=bytes(range(64)))))
     command = 'debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam -noprogress wdt=-1'
-    payload, info = mkpayload.build(str(kernel), str(tree), command)
+    if args.ram_init:
+        command += ' rd=md0'
+    payload, info = mkpayload.build(str(kernel), str(tree), command,
+                                  str(args.ram_init.resolve()) if args.ram_init else None)
     (output / 'qemu-only.payload').write_bytes(payload)
     font = qemu.payload_data(payload, symbol_address(kernel, '_iso_font'), 256 * 16)
     physical, image, boot_args, entry = qemu.build_image(payload)
@@ -117,15 +125,18 @@ def main():
         result = qemu.screen_result(screen, unknown)
         result.update({'simulation_only': True, 'qemu_version': version, 'kernel_sha256': kernel_hash,
                        'duration_seconds': args.seconds,
+                       'ram_init_sha256': hashlib.sha256(args.ram_init.read_bytes()).hexdigest() if args.ram_init else None,
                        'kva_active': kva_active,
                        'framebuffer_handoff_verified': kva_active == 1})
         result.update(screen_milestones(screen))
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(screen, flush=True)
         print(json.dumps(result, indent=2), flush=True)
+        expected_progress = (result['userspace_pid1_visible'] and result['userspace_heartbeats'] >= 2
+                             if args.ram_init else result['waiting_for_root'])
         return 0 if args.reproduce_05b and result['translation_check_failed'] else (
             0 if not args.reproduce_05b and result['framebuffer_handoff_verified'] and
-                 result['status'] == 'no_panic_observed' and result['waiting_for_root'] and
+                 result['status'] == 'no_panic_observed' and expected_progress and
                  not result['translation_check_failed'] else 2)
     finally:
         if process.poll() is None:

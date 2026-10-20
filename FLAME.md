@@ -459,7 +459,8 @@ No panic backtrace is visible. The generic `Failed to store the panic-log to
 NVRAM.` line is also present in the passing emulator screen and does not alone
 establish a panic. No storage driver or root filesystem is supplied, so this
 root-device wait is expected; it is not an iOS userland boot. The owner was told
-to restart with Power; **Android return verification is pending**. Transcription
+to restart with Power; **Android return is verified** via adb (flame,
+boot_completed=1, boot reason bootloader). Transcription
 is ignored at research/flame-device/probe-05c-screen.json. No flash or erase
 commands were issued.
 
@@ -467,3 +468,33 @@ The simulator's normal acceptance criterion now requires root-device discovery
 as well as a completed framebuffer handoff and a fully decoded, panic-free
 snapshot. Its default duration is 75 seconds; an arbitrary early blank/stalled
 screen does not count as a pass.
+
+
+## Next milestone: a RAM-only userspace probe
+
+The next source profile selects 0001–0025 plus 0027 and Pixel0099 (27 patches),
+the two pinned dependency staging scripts, and tools/sweet-init.S + mkinit.py:
+31 checksummed source inputs. Newly enabled mockfs serves a single Mach-O RAM
+device as /sbin/launchd and provides /dev for devfs. Patches 0021/0022 fix typed
+allocation and allow a RAM root without IOStorageFamily; 0024 routes virtual
+RAM devices through normal device I/O rather than treating virtual addresses
+as physical pages. The 0025 AMFI interface returns no entitlements and retains
+kernel code-signature/page-hash checks. HFS, UFS and later peripheral drivers
+remain excluded. All selected patches apply to a fresh pinned XNU checkout.
+
+CI assembles the existing position-independent static syscall program, with
+its hardware stack-alignment fix, and builds an ad-hoc SHA256 signed Mach-O.
+This is a test program, not Apple launchd or iOS userland. It opens /dev/console,
+prints its PID, then prints a heartbeat every five seconds via select timeouts.
+No downloaded Apple firmware or SDK files are included in the artifact.
+
+`python3 flame/pack_kernel.py ARTIFACT --ram-init` verifies the artifact/profile
+and init checksum, appends the program in bounded kernel-managed RAM, adds the
+RAMDisk ADT property, and selects rd=md0. The loader checks the complete payload
+and protects its additional segment below topOfKernelData. No device storage
+is accessed. Without --ram-init the packer still supplies no root.
+
+The emulator's explicit --ram-init PATH option requires a visible PID 1 banner
+and at least two heartbeats, a completed framebuffer handoff and no observed
+panic. Use 150 seconds for this profile; root-wait alone is not a pass.
+Build/emulator results and a new Pixel test are pending.

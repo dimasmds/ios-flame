@@ -12,17 +12,28 @@ The previous stage-8 framebuffer blocker is passed on real hardware. No panic
 backtrace is visible. A generic failed panic-log-to-NVRAM message is also
 visible; do not treat that alone as a kernel panic. No root/userland is supplied.
 Photo transcription: ignored research/flame-device/probe-05c-screen.json.
-The owner was told to hold Power to restart Android; return verification is
-pending. Do not re-boot another experiment before verifying Android return.
+The owner restarted and reported Android ready. adb independently verified
+flame / boot_completed=1 / flash.locked=0 / boot reason bootloader. Return log:
+research/flame-device/probe-05c-android-return.json. Test 05c is complete.
 
 Before loading, adb verified flame, boot_completed=1, and unlocked bootloader;
 the preserved CI 39452744863 image SHA256 matched the value below. The same
 verified target accepted `fastboot boot`: sending 65536 KB OKAY (1.602s), booting
 OKAY (4.053s), total 5.686s. Transcript:
 research/flame-device/probe-05c-fastboot.txt. No flash/erase commands.
-Next work: investigate a RAM-backed root path and audit required generic kernel
-providers in source/emulator before preparing another hardware image. Persistent
-storage access and destructive writes remain outside current authorization.
+Next profile in progress: RAM-only mockfs root containing the source-built
+static tools/sweet-init.S syscall/heartbeat program, not Apple launchd. Audited
+0021/0022/0024 mockfs and missing-IOStorageFamily fixes plus 0025's no-entitlements
+AMFI interface (all entitlement requests denied; kernel page hashes retained).
+Selection now 0001–0025 +0027 +Pixel0099, two pinned staging helpers and the two
+init source/build tools: 27 patches, 31 source inputs. HFS/UFS and later drivers
+remain excluded. All 27 patches apply to a fresh pinned XNU source tree;
+source/profile checks and staged build-script syntax pass. Workflow now assembles
+and packages the static arm64 test program and checksums it. Packer's explicit
+--ram-init embeds only that verified artifact; qemu --ram-init requires visible
+PID 1 and at least two heartbeats, no panic, plus final framebuffer handoff.
+CI build and 150-second emulator validation are next; no new Pixel boot yet.
+Persistent storage access and destructive writes remain outside authorization.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
 TRANSLATION FAILED. The displayed PAR values are NOT reliable MMU results:

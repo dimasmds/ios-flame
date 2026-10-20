@@ -46,9 +46,13 @@ jobs:
           mkdir -p flame-kernel
           cp dxb/fakeroot/System/Library/Kernels/kernel.development.sweet flame-kernel/
           cp dxb/flame-patches.json flame-kernel/
+          # A source-built syscall probe, not Apple launchd or iOS firmware.
+          xcrun clang -target arm64-apple-ios16.0 -c tools/sweet-init.S -o flame-init.o
+          python3 tools/mkinit.py flame-init.o flame-kernel/flame-init
           git rev-parse HEAD > flame-kernel/port-commit.txt
           git -C dxb/xnu rev-parse HEAD > flame-kernel/xnu-commit.txt
           shasum -a 256 flame-kernel/kernel.development.sweet > flame-kernel/SHA256SUMS
+          shasum -a 256 flame-kernel/flame-init >> flame-kernel/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: flame-xnu-early-console
