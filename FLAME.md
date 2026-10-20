@@ -230,5 +230,6 @@ yet been booted.
 Published source branch: `dimasmds/ios-flame`, `pixel4-bringup`.
 The first build uses commit `5677199723efe6d6c840e97381da7bf10e0bef18`:
 [Actions run 39443010166](https://github.com/dimasmds/ios-flame/actions/runs/39443010166).
-Setup completed and the kernel compilation is in progress. A successful
+The first compilation failed because the Pixel C mapping code used the
+assembly-only `PGBYTES` macro. The C code now uses `ARM_PGBYTES`. A successful
 artifact and a bounded Pixel payload loader are still needed before booting it.

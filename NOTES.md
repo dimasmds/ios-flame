@@ -67,8 +67,9 @@ No device dumps or downloaded firmware may be uploaded. Public fork
 https://github.com/dimasmds/ios-flame now has default branch pixel4-bringup.
 Actions run 39443010166 at commit 5677199723efe6d6c840e97381da7bf10e0bef18:
 https://github.com/dimasmds/ios-flame/actions/runs/39443010166
-Setup passed; kernel compilation is in progress. No successful artifact yet
-and no Pixel kernel has booted.
+Setup passed; compilation failed in arm_vm_init.c because the Pixel patch used
+assembly-only PGBYTES. Fixed the C additions to use ARM_PGBYTES. No successful
+artifact yet and no Pixel kernel has booted; dispatch the corrected profile.
 
 Kernel profile: .github/workflows/flame-xnu.yml pins XNU 8796.141.3,
 selects inherited 0001–0018 only, plus flame/patches/0099-flame-early-console.patch.

@@ -94,7 +94,7 @@ diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
   * for a Normal-NC framebuffer alias that survives bootstrap TTBR0 teardown.
   */
  #define SWEET_EARLY_FB_VA (VM_MIN_KERNEL_ADDRESS + ARM_TT_L2_SIZE)
-+static tt_entry_t flame_fb_l3[PGBYTES / sizeof(tt_entry_t)] __attribute__((aligned(ARM_PGBYTES)));
++static tt_entry_t flame_fb_l3[ARM_PGBYTES / sizeof(tt_entry_t)] __attribute__((aligned(ARM_PGBYTES)));
  
  static void
  sweet_early_map_final(void)
@@ -107,9 +107,9 @@ diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
 -	    ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) |
 -	    ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX;
 +	/* Preserve the exact viewport mapping when switching to TTBR1. */
-+	const unsigned int pages = (1080 * 2280 * 4 + PGBYTES - 1) / PGBYTES;
++	const unsigned int pages = (1080 * 2280 * 4 + ARM_PGBYTES - 1) / ARM_PGBYTES;
 +	for (unsigned int i = 0; i < pages; i++) {
-+		flame_fb_l3[i] = (0x9c400000ULL + (uint64_t)i * PGBYTES) |
++		flame_fb_l3[i] = (0x9c400000ULL + (uint64_t)i * ARM_PGBYTES) |
 +		    ARM_PTE_TYPE | ARM_PTE_SH(SH_OUTER_MEMORY) |
 +		    ARM_PTE_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) |
 +		    ARM_PTE_AF | ARM_PTE_PNX | ARM_PTE_NX;
