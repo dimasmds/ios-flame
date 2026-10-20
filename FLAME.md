@@ -418,4 +418,33 @@ to the pinned source; the staged builder and helper scripts pass syntax checks.
 
 Expanded-core build:
 [run 39452744863](https://github.com/dimasmds/ios-flame/actions/runs/39452744863),
-commit `47ee00dc0ba399fe35a799acbea3f0eca13dc002`, currently running.
+commit `47ee00dc0ba399fe35a799acbea3f0eca13dc002`, succeeded.
+
+## Latest ready image: core startup reaches root discovery in QEMU
+
+Run 39452744863 succeeded. Artifact profile/checksum, actual linked table
+alignment, compiled AT/ISB/PAR/TLBI sequences, payload validation, and all host
+boot-image checks passed. Kernel SHA-256:
+`f6813708e9cb0fd402f2bbcbeee2b3b20247d8fe2c6eaf948952bad61b23d494`.
+
+The 75-second emulator run `research/flame-qemu/core-39452744863/` passes with
+zero undecodable glyphs, no panic observed, `kva_active=1`, and no framebuffer
+translation failure. The decoded screen confirms libpthread registration, CPU
+SGI1 self-test completion, DLIL/Skywalk self-tests, and scheduling of kernel
+threads. It reaches IOMedia matching for `Apple_HFS` at root-device discovery.
+The wait is expected because no storage driver or root filesystem is supplied.
+The final framebuffer console overwrites early stage text, so `kva_active=1`
+provides the retained evidence of the successful page-table handoff.
+
+Prepared phone image: `flame/out/flame-xnu-39452744863.img`, SHA-256
+`d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3`.
+Entry PA `0x101491488`, boot arguments `0x102074000`.
+**This image has not been booted on the Pixel.** The owner is sleeping and
+Android remains available. No phone boot/flash/erase was performed during this
+hands-free investigation. Actual Pixel GIC/timer/CPU and post-stage-8 progress
+remain the next hardware checks; emulator results do not establish those.
+
+The simulator's normal acceptance criterion now requires root-device discovery
+as well as a completed framebuffer handoff and a fully decoded, panic-free
+snapshot. Its default duration is 75 seconds; an arbitrary early blank/stalled
+screen does not count as a pass.

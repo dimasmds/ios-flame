@@ -30,10 +30,24 @@ code is generic pthread, portable AES, SHA256 and MD5; no storage, filesystem,
 AMFI replacement or later peripheral drivers. Both stage_kernel and packer share
 the explicit manifest selection. All four extra patches apply cleanly; staged
 profile/script syntax checks passed. Build run 39452744863 at
-47ee00dc0ba399fe35a799acbea3f0eca13dc002 is running:
+47ee00dc0ba399fe35a799acbea3f0eca13dc002 succeeded:
 https://github.com/dimasmds/ios-flame/actions/runs/39452744863
-Next: download/verify the artifact, then run QEMU for 75 seconds (allowing the
-normal RTC/provider waits), checking core initialization and any next panic.
+75-second QEMU run research/flame-qemu/core-39452744863 PASSED: zero unknown
+glyphs, no panic observed, kva_active=1, no translation failure, real pthread
+registration, CPU SGI1 self-test, DLIL/Skywalk self-tests and kernel threads
+scheduled. It reaches `Waiting on ... IOMedia ... Apple_HFS` root discovery.
+Root wait is expected: no storage driver or root filesystem is supplied.
+
+**Ready for next hardware test when owner returns:**
+flame/out/flame-xnu-39452744863.img, SHA256
+d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3.
+Kernel SHA256 f6813708e9cb0fd402f2bbcbeee2b3b20247d8fe2c6eaf948952bad61b23d494.
+Profile/checksum, actual linked tables/instructions, payload validation and all
+host boot-image checks pass. This image has NOT been loaded on the Pixel.
+Phone remains on Android; last adb read verifies flame/boot_completed=1.
+Next actual port validation is Pixel framebuffer handoff, GIC/timer/CPU startup
+and root-device wait; request a photo only when the owner is available. No
+filesystem installation or persistent device writes are authorized by this.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with

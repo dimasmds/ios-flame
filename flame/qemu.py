@@ -46,11 +46,20 @@ def symbol_address(kernel, target):
     return symbols[0]
 
 
+def screen_milestones(screen):
+    unwrapped = ''.join(screen.splitlines())
+    return {'stage9_visible': 'kernel framebuffer VA live' in screen,
+            'stage14_visible': 'early I/O page tables ready' in screen,
+            'waiting_for_root': ('Still waiting for root device' in screen or
+                ('Waiting on <dict' in unwrapped and 'IOMedia' in unwrapped and 'Apple_HFS' in unwrapped)),
+            'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('kernel', type=Path)
     parser.add_argument('output', type=Path)
-    parser.add_argument('--seconds', type=float, default=35)
+    parser.add_argument('--seconds', type=float, default=75)
     parser.add_argument('--reproduce-05b', action='store_true', help='Emulate only the exact known-broken 05b kernel')
     args = parser.parse_args()
     kernel, output = args.kernel.resolve(), args.output.resolve()
@@ -107,18 +116,17 @@ def main():
         (output / 'fb.txt').write_text(screen)
         result = qemu.screen_result(screen, unknown)
         result.update({'simulation_only': True, 'qemu_version': version, 'kernel_sha256': kernel_hash,
-                       'stage9_visible': 'kernel framebuffer VA live' in screen,
-                       'stage14_visible': 'early I/O page tables ready' in screen,
+                       'duration_seconds': args.seconds,
                        'kva_active': kva_active,
-                       'framebuffer_handoff_verified': kva_active == 1,
-                       'waiting_for_root': 'Still waiting for root device' in screen,
-                       'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen})
+                       'framebuffer_handoff_verified': kva_active == 1})
+        result.update(screen_milestones(screen))
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(screen, flush=True)
         print(json.dumps(result, indent=2), flush=True)
         return 0 if args.reproduce_05b and result['translation_check_failed'] else (
             0 if not args.reproduce_05b and result['framebuffer_handoff_verified'] and
-                 result['status'] == 'no_panic_observed' and not result['translation_check_failed'] else 2)
+                 result['status'] == 'no_panic_observed' and result['waiting_for_root'] and
+                 not result['translation_check_failed'] else 2)
     finally:
         if process.poll() is None:
             process.kill()
