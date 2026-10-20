@@ -439,10 +439,17 @@ provides the retained evidence of the successful page-table handoff.
 Prepared phone image: `flame/out/flame-xnu-39452744863.img`, SHA-256
 `d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3`.
 Entry PA `0x101491488`, boot arguments `0x102074000`.
-**This image has not been booted on the Pixel.** The owner is sleeping and
-Android remains available. No phone boot/flash/erase was performed during this
-hands-free investigation. Actual Pixel GIC/timer/CPU and post-stage-8 progress
-remain the next hardware checks; emulator results do not establish those.
+No phone boot/flash/erase was performed during the overnight investigation.
+
+On 2026-10-21, after the owner returned, **test 05c** temporarily loaded this
+exact image on the verified Pixel. Preflight checked flame, Android
+boot_completed=1, unlocked bootloader and the image SHA-256. `fastboot boot`
+reported sending 65536 KB OKAY (1.602s), booting OKAY (4.053s), total 5.686s.
+The transcript is ignored at research/flame-device/probe-05c-fastboot.txt.
+**Current screen/photo and Android return are pending.** Bootloader acceptance
+alone does not establish post-stage-8 progress. Actual Pixel framebuffer
+handoff and GIC/timer/CPU behavior need this hardware evidence; emulator results
+do not establish those. No flash or erase commands were issued.
 
 The simulator's normal acceptance criterion now requires root-device discovery
 as well as a completed framebuffer handoff and a fully decoded, panic-free

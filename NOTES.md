@@ -1,11 +1,17 @@
 # iOS 16 on sweet (Redmi Note 10 Pro, SM7150) - working notes
 
-## Pixel 4 local handoff — 2026-10-20 (read before inherited Redmi notes)
+## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: owner is sleeping; continue source/CI/emulator work without requiring
-hands-on help.** Owner supplied flame-ios-6.jpeg for test 05b, then restarted
-and reported Android ready. Avoid hardware experiments that need a manual
-restart or another photo while the owner is unavailable.
+**Latest: owner returned; test 05c temporarily loaded, awaiting screen/photo.**
+Before loading, adb verified flame, boot_completed=1, and unlocked bootloader;
+the preserved CI 39452744863 image SHA256 matched the value below. The same
+verified target accepted `fastboot boot`: sending 65536 KB OKAY (1.602s), booting
+OKAY (4.053s), total 5.686s. Transcript:
+research/flame-device/probe-05c-fastboot.txt. No flash/erase commands.
+Bootloader acceptance is not proof of XNU progress. Await the owner's photo,
+then record the actual last stage/panic/root wait and verify Android return.
+The owner supplied flame-ios-6.jpeg for previous test 05b, then restarted
+and reported Android ready before the overnight source/emulator work.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
 TRANSLATION FAILED. The displayed PAR values are NOT reliable MMU results:
@@ -38,16 +44,15 @@ registration, CPU SGI1 self-test, DLIL/Skywalk self-tests and kernel threads
 scheduled. It reaches `Waiting on ... IOMedia ... Apple_HFS` root discovery.
 Root wait is expected: no storage driver or root filesystem is supplied.
 
-**Ready for next hardware test when owner returns:**
+**Current hardware test 05c:**
 flame/out/flame-xnu-39452744863.img, SHA256
 d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3.
 Kernel SHA256 f6813708e9cb0fd402f2bbcbeee2b3b20247d8fe2c6eaf948952bad61b23d494.
 Profile/checksum, actual linked tables/instructions, payload validation and all
-host boot-image checks pass. This image has NOT been loaded on the Pixel.
-Phone remains on Android; last adb read verifies flame/boot_completed=1.
-Next actual port validation is Pixel framebuffer handoff, GIC/timer/CPU startup
-and root-device wait; request a photo only when the owner is available. No
-filesystem installation or persistent device writes are authorized by this.
+host boot-image checks pass. This image was temporarily loaded on the Pixel
+on 2026-10-21; screen evidence is pending. Actual port validation is Pixel
+framebuffer handoff, GIC/timer/CPU startup and root-device wait. No filesystem
+installation or persistent device writes are authorized by this.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with
@@ -58,7 +63,9 @@ failed-check message. Result has zero undecodable glyphs; coloured stage-marker
 band is excluded from text decoding. Initial runner lacked a default NIC's ROM;
 -nic none fixes that unnecessary device dependency. Simulation does not validate
 Pixel peripherals. adb independently verifies flame/boot_completed=1 after the
-owner's last manual restart; boot reason bootloader. No further device boots.
+owner's last manual restart; boot reason bootloader. No further device boots
+were performed during the overnight investigation; test 05c followed the
+owner's return as recorded above.
 
 Repository `/home/dimasmds/projects/ios-flame`, branch `pixel4-bringup`, based
 on topaz commit `3eacb48`. The current task is an experimental Pixel 4 port,
