@@ -60,7 +60,11 @@ boot-image section sizes and offsets, and verification of the AVB hash descripto
    diagnostic screen.** Android subsequently returned and adb was available.
    The individual effects of checksum and text offset were not isolated.
 6. Rebuilt with a 120-second capture window and booted again at the owner's
-   request. Hardware values from the screen are pending capture.
+   request. The owner supplied a photo of the completed diagnostic and then
+   confirmed return to the Android home screen. adb independently reported
+   `ro.product.device=flame`, `sys.boot_completed=1`, slot `_a`, verified state
+   `orange`. Android's `sys.boot.reason` was `watchdog`; the cause of that
+   reported reason is unresolved. Do not claim the PSCI reset path is proven.
 
 The accepted 20-second image SHA-256 is
 `6ebecb4bec5290f2fd012cb6cebe22801b00ca1e7dcc593f4aa33b8e27007ff3`.
@@ -80,12 +84,12 @@ those in the stock boot image. No Apple firmware has been downloaded.
 | Item | Pixel 4 evidence | Remaining work |
 | --- | --- | --- |
 | Boot wrapper | v2, 4096-byte pages, LZ4 + checksum, DTBs, AVB footer; hardware probe accepted | Adapt for an XNU payload after validating RAM |
-| CPU affinity | DT nodes and Google source: `0x000`, `0x100`, … `0x700` | Measure 16K support and select the first XNU core; do not reuse topaz's Gold handoff |
+| CPU affinity | Probe: EL1, MIDR `0x51df805e`, MPIDR `0x81000000`, TGRAN16 `1`; source affinities `0x000` … `0x700` | Start with boot-core affinity 0; do not reuse topaz's Gold handoff |
 | GIC | Google source: distributor `0x17a00000`, redistributors `0x17a60000` | Validate live FDT; port interrupt and SMP initialization |
 | Timer | Google source: 19.2 MHz, virtual timer PPI 3 → INTID 19 | Test timer interrupts |
 | UFS | Running Android platform device `1d84000.ufshc` | Validate register layout, DMA, IOMMU/firmware state; disable all writes initially |
-| Splash | Source reservation `0x9c400000` / `0x02400000`; owner saw diagnostics | Capture the live values; characterize refresh for continuous UI |
-| RAM | 6 GB model; Linux reports about 5.3 GiB usable | Extract actual banks and all carve-outs; no guessed high-memory range |
+| Splash | Photo confirms reservation `0x9c400000` / `0x02400000` and visible diagnostic text | Characterize refresh for continuous UI |
+| RAM | Photo: `0x80000000` + `0x3cc00000`; `0xc0000000` + `0x140000000` | Validate carve-outs before loading XNU |
 | Touch/buttons | Not investigated yet | Identify actual controller and PMIC routing, then port HID |
 
 Source locations at the installed kernel revision:
@@ -100,3 +104,31 @@ map and framebuffer, early XNU console, timer/interrupt support, storage reads,
 and finally an iOS filesystem and userland. The inherited kernel patches
 contain hard-coded Redmi addresses, including persistent writes to userdata;
 they must be audited before running XNU on this phone.
+
+## Memory-map probe 02
+
+```sh
+bash flame/build.sh 02
+python3 flame/check.py 02
+```
+
+This variant inspects candidate range `[0x100000000, 0x140000000)` (1 GiB).
+It reads metadata only and never accesses that candidate RAM. It checks:
+
+- Containment in a complete RAM bank and overflow of all inspected intervals.
+- Every static `/reserved-memory` range, and every possible allocation window
+  for dynamic pools. Unbounded pools prevent a clear result.
+- The FDT reservation table, running probe image, FDT blob, and supplied initrd.
+- Cell widths, address translation assumptions, traversal completion, and
+  reservation-table termination. Incomplete/unsupported metadata blocks a pass.
+
+`NO DT CONFLICTS` is a metadata result, not proof that XPU permissions or DDR
+access work. No RAM test or XNU jump is performed. Google source also contains
+a memory-offlining policy; `arch/arm64/mm/init.c` treats `offline-sizes` entries
+as RAM-size thresholds and amounts to offline, not physical reserved ranges.
+
+Build and host checks passed (including conflict, overflow, dynamic-pool,
+initrd/image, and malformed-reservation cases). The bootloader accepted the
+02 image on the same verified Pixel; screen capture is pending.
+Image SHA-256:
+`691b20951f20808f8056e285385df104db9e142a230534c6a7380124b59d8cb3`.

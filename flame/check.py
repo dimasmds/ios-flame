@@ -5,7 +5,9 @@ from pathlib import Path
 import struct
 import subprocess
 import tempfile
+import argparse
 from lz4_image import decompress
+from check_memory import check_memory
 
 ROOT = Path(__file__).resolve().parent
 U32 = lambda *v: struct.pack(">" + "I" * len(v), *v)
@@ -22,10 +24,13 @@ def node(name):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", nargs="?", choices=["01", "02"], default="01")
+    mode = parser.parse_args().mode
     with tempfile.TemporaryDirectory() as tmp:
         libpath = Path(tmp) / "fdt.so"
         subprocess.run(["gcc", "-shared", "-fPIC", "-Wall", "-Wextra", "-Werror",
-                        str(ROOT / "fdt.c"), "-o", str(libpath)], check=True)
+                        str(ROOT / "fdt.c"), str(ROOT / "memory.c"), "-o", str(libpath)], check=True)
         lib = ctypes.CDLL(str(libpath))
 
         class DT(ctypes.Structure):
@@ -36,6 +41,7 @@ def main():
         lib.dt_prop.argtypes = [ctypes.POINTER(DT), ctypes.c_char_p, ctypes.c_char_p,
                                 ctypes.POINTER(ctypes.c_uint32)]
         lib.dt_prop.restype = ctypes.c_void_p
+        check_memory(lib, DT)
 
         def lookup(data, path, key=b"reg"):
             buf = ctypes.create_string_buffer(data)
@@ -73,7 +79,8 @@ def main():
             offset += size
             count += 1
 
-    image = (ROOT / "out/flame-probe-01.img").read_bytes()
+    image_path = ROOT / f"out/flame-probe-{mode}.img"
+    image = image_path.read_bytes()
     assert image[:8] == b"ANDROID!"
     kernel_size, kernel_addr, rd_size = struct.unpack_from("<3I", image, 8)
     assert struct.unpack_from("<I", image, 36)[0] == 4096
@@ -81,7 +88,7 @@ def main():
     assert struct.unpack_from("<I", image, 1644)[0] == 1660
     kernel = decompress(image[4096:4096 + kernel_size])
     assert image[4096:4101] == bytes.fromhex("04224d1864")
-    assert kernel == (ROOT / "out/Image").read_bytes()
+    assert kernel == (ROOT / f"out/Image-{mode}").read_bytes()
     assert kernel[56:60] == b"ARM\x64"
     assert struct.unpack_from("<Q", kernel, 8)[0] == 0x80000
     assert struct.unpack_from("<Q", kernel, 16)[0] == len(kernel)
@@ -98,7 +105,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         # avbtool resolves the hash descriptor's partition name as boot.img.
         boot = Path(tmp) / "boot.img"
-        boot.symlink_to(ROOT / "out/flame-probe-01.img")
+        boot.symlink_to(image_path)
         subprocess.run(["python3", str(inputs / "avbtool.py"), "verify_image", "--image",
                         str(boot)], check=True, stdout=subprocess.DEVNULL)
     print(f"PASS: malformed/nested FDT checks; {count} Google DTBs; arm64 Image and Pixel boot-v2 packaging")

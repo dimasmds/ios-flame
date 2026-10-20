@@ -1,6 +1,7 @@
 /* First Pixel 4 experiment: CPU/FDT inspection, no storage or peripheral drivers. */
 #include <stdint.h>
 #include "fdt.h"
+#include "memory.h"
 #include "../shim/font.h"
 
 #define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
@@ -9,6 +10,7 @@
 static volatile uint32_t *screen;
 static unsigned row;
 static int use_hvc;
+extern char _head[], _end[];
 
 static uint64_t firmware(uint64_t fn)
 {
@@ -99,6 +101,28 @@ void probe_main(uintptr_t fdt_address)
     }
     screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
+#ifdef PROBE_MAP
+    line("PIXEL 4 / FLAME - MAP PROBE 02");
+    line("READ-ONLY MEMORY MAP CHECK");
+    struct map_report map;
+    map_check(&dt, 0x100000000ULL, 0x40000000ULL, (uintptr_t)_head, (uintptr_t)_end, &map);
+    hex("CANDIDATE", map.candidate);
+    hex("SIZE", map.size);
+    hex("IN RAM", map.contained);
+    hex("RAM BANKS", map.ram_banks);
+    hex("FIXED RANGES", map.fixed_ranges);
+    hex("FIXED END", map.highest_fixed_end);
+    hex("RESERVE ENTRIES", map.reserve_entries);
+    hex("DYNAMIC POOLS", map.dynamic_pools);
+    hex("UNBOUNDED POOLS", map.unbounded_pools);
+    hex("CONFLICTS", map.conflicts);
+    hex("MAP ERRORS", map.errors);
+    if (!map.errors && !map.conflicts && !map.unbounded_pools)
+        line("NO DT CONFLICTS - NOT RAM TESTED");
+    else
+        line("CANDIDATE NOT CLEARED FOR XNU");
+    line("CANDIDATE RAM WAS NOT ACCESSED");
+#else
     line("PIXEL 4 / FLAME - PROBE 01");
     line("CPU + BOOT DEVICE TREE ONLY");
     hex("EL", READ("CurrentEL") >> 2);
@@ -122,6 +146,7 @@ void probe_main(uintptr_t fdt_address)
             hex("RAM BASE", cells64(memory + i));
             hex("RAM SIZE", cells64(memory + i + 8));
         }
+#endif
     line("NO PARTITIONS WRITTEN");
     line("ANDROID RESTART IN 120 SECONDS");
     /* Command-mode display may need a later DPU kickoff driver to show these writes. */

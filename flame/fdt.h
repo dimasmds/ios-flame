@@ -10,3 +10,6 @@ static inline uint32_t dt_be32(const uint8_t *p)
 }
 int dt_open(struct dt *dt, const void *blob, size_t available);
 const uint8_t *dt_prop(const struct dt *dt, const char *path, const char *key, uint32_t *length);
+/* callback: 0 continue, 1 stop. Result: 0 malformed, 1 complete, 2 stopped. */
+typedef int (*dt_property_fn)(const char *, const char *, const uint8_t *, uint32_t, void *);
+int dt_walk(const struct dt *dt, dt_property_fn property, void *context);

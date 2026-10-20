@@ -19,7 +19,7 @@ int dt_open(struct dt *dt, const void *blob, size_t available)
     return 1;
 }
 
-const uint8_t *dt_prop(const struct dt *dt, const char *wanted, const char *key, uint32_t *length)
+int dt_walk(const struct dt *dt, dt_property_fn property, void *context)
 {
     char path[256];
     uint32_t saved[32], used = 0, depth = 0, pos = dt->structure;
@@ -27,35 +27,51 @@ const uint8_t *dt_prop(const struct dt *dt, const char *wanted, const char *key,
     while (pos <= dt->end && dt->end - pos >= 4) {
         uint32_t token = dt_be32(dt->blob + pos); pos += 4;
         if (token == 1) {
-            if (depth == 32) return NULL;
+            if (depth == 32) return 0;
             saved[depth++] = used;
-            if (used >= sizeof(path) - 1) return NULL;
+            if (used >= sizeof(path) - 1) return 0;
             if (depth > 1) path[used++] = '/';
             while (pos < dt->end && dt->blob[pos]) {
-                if (used >= sizeof(path) - 1) return NULL;
+                if (used >= sizeof(path) - 1) return 0;
                 path[used++] = dt->blob[pos++];
             }
-            if (pos == dt->end) return NULL;
+            if (pos == dt->end) return 0;
             path[used] = 0;
             pos = (pos + 4) & ~3U;
         } else if (token == 2) {
-            if (!depth) return NULL;
+            if (!depth) return 0;
             used = saved[--depth]; path[used] = 0;
         } else if (token == 3) {
-            if (!depth || pos > dt->end || dt->end - pos < 8) return NULL;
+            if (!depth || pos > dt->end || dt->end - pos < 8) return 0;
             uint32_t n = dt_be32(dt->blob + pos), off = dt_be32(dt->blob + pos + 4);
             pos += 8;
-            if (n > dt->end - pos || off >= dt->strings_size) return NULL;
+            if (n > dt->end - pos || off >= dt->strings_size) return 0;
             uint32_t end = off;
             while (end < dt->strings_size && dt->blob[dt->strings + end]) end++;
-            if (end == dt->strings_size) return NULL;
-            if (equal(path, wanted) && equal((const char *)dt->blob + dt->strings + off, key)) {
-                *length = n; return dt->blob + pos;
-            }
+            if (end == dt->strings_size) return 0;
+            if (property(path, (const char *)dt->blob + dt->strings + off, dt->blob + pos, n, context)) return 2;
             pos = (pos + n + 3) & ~3U;
+        } else if (token == 9) {
+            return depth == 0 ? 1 : 0;
         } else if (token != 4) {
-            return NULL;
+            return 0;
         }
     }
-    return NULL;
+    return 0;
+}
+
+struct find_property { const char *path, *key; const uint8_t *value; uint32_t size; };
+static int find(const char *path, const char *key, const uint8_t *p, uint32_t n, void *arg)
+{
+    struct find_property *f = arg;
+    if (!equal(path, f->path) || !equal(key, f->key)) return 0;
+    f->value = p; f->size = n; return 1;
+}
+
+const uint8_t *dt_prop(const struct dt *dt, const char *path, const char *key, uint32_t *length)
+{
+    struct find_property f = {path, key, NULL, 0};
+    if (dt_walk(dt, find, &f) != 2) return NULL;
+    *length = f.size;
+    return f.value;
 }

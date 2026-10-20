@@ -19,9 +19,10 @@ destructive approvals recorded farther below.
 **Milestone achieved:** built a separate bare-metal diagnostic in `flame/`,
 temporarily loaded it with `fastboot boot`, and the owner confirmed the purple
 `PIXEL 4 / FLAME` screen. The 20-second version returned to Android; adb came
-back and the product was verified again before the capture rerun. A 120-second
-version is now booted at the owner's request so they can capture CPU and RAM
-values. Do not claim XNU or iOS has booted. No flashing or erase commands were
+back and the product was verified again before the capture rerun. The owner
+supplied the 120-second probe photo and confirmed Android returned to its home
+screen. adb confirmed boot_completed=1. Android reports sys.boot.reason=watchdog;
+the reset cause is unresolved. Do not claim XNU or iOS has booted. No flashing or erase commands were
 issued. No GitHub fork, push, or CI build was performed.
 
 Checks: `bash flame/build.sh`, `python3 flame/check.py`, ELF relocation
@@ -31,10 +32,19 @@ commits. The public DTBs match the stock image's DTB section byte-for-byte.
 The successful wrapper required matching more stock Image/LZ4 details; see the
 test matrix in `FLAME.md`. Do not retry earlier rejected wrappers.
 
-**Next action:** collect the owner's capture of TGRAN16 and each RAM BASE / RAM
-SIZE pair, ensure Android returns after the 120-second run, then determine a
-safe XNU RAM region using the complete reserved-memory map. Probe output does
-not yet dump every carve-out, so do not assume a whole RAM bank is free.
+**Captured evidence:** EL1; MIDR 0x51df805e; MPIDR 0x81000000; TGRAN16=1;
+RAM 0x80000000 + 0x3cc00000 and 0xc0000000 + 0x140000000; splash reservation
+0x9c400000 + 0x02400000; FDT 0x84500000, size 0xadd03. Photo transcription
+and Android return check saved in ignored research/flame-device/.
+
+**Next action:** memory-map probe 02 is booted, with a requested photo of the
+whole screen. Inspect its CONFLICTS, UNBOUNDED POOLS, and MAP ERRORS values and
+confirm Android returns. Candidate is [0x100000000, 0x140000000). This variant
+does not touch candidate RAM. It checks complete DT traversal, static and
+dynamic reservations, the FDT memreserve table, initrd, FDT blob, and running
+image. A clean report only clears metadata checks, not memory access or XPU.
+Host tests and packaging checks passed. `FLAME.md` records the 02 hash and
+details. Do not assume a whole RAM bank is free.
 The existing `tools/mkadt.py`, `shim/`, and XNU patch series remain Redmi-specific
 and must not be booted unmodified. Later topaz patches include hardware drivers
 and persistent UFS writes; audit/gate them before attempting Pixel XNU.
