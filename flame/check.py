@@ -10,6 +10,7 @@ from lz4_image import decompress
 from check_memory import check_memory
 from check_ram import check_ram
 from check_mmu import check_mmu
+from check_loader import check_loader
 
 ROOT = Path(__file__).resolve().parent
 U32 = lambda *v: struct.pack(">" + "I" * len(v), *v)
@@ -27,12 +28,13 @@ def node(name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", nargs="?", choices=["01", "02", "03", "04"], default="01")
+    parser.add_argument("mode", nargs="?", choices=["01", "02", "03", "04", "05"], default="01")
     mode = parser.parse_args().mode
     with tempfile.TemporaryDirectory() as tmp:
         libpath = Path(tmp) / "fdt.so"
         subprocess.run(["gcc", "-shared", "-fPIC", "-Wall", "-Wextra", "-Werror",
-                        str(ROOT / "fdt.c"), str(ROOT / "memory.c"), str(ROOT / "ram.c"), str(ROOT / "mmu.c"), "-o", str(libpath)], check=True)
+                        str(ROOT / "fdt.c"), str(ROOT / "memory.c"), str(ROOT / "ram.c"), str(ROOT / "mmu.c"),
+                        str(ROOT / "loader.c"), str(ROOT / "platform.c"), "-o", str(libpath)], check=True)
         lib = ctypes.CDLL(str(libpath))
 
         class DT(ctypes.Structure):
@@ -46,6 +48,7 @@ def main():
         check_memory(lib, DT)
         check_ram(lib)
         check_mmu(lib)
+        check_loader(lib)
 
         def lookup(data, path, key=b"reg"):
             buf = ctypes.create_string_buffer(data)
@@ -80,6 +83,16 @@ def main():
             blob = dtbs[offset:offset + size]
             assert lookup(blob, b"", b"compatible")
             assert lookup(blob, b"/psci", b"method") == b"smc\0"
+            dt = DT()
+            raw = ctypes.create_string_buffer(blob)
+            assert lib.dt_open(ctypes.byref(dt), raw, len(blob))
+            assert lib.platform_check(ctypes.byref(dt))
+            changed = bytearray(blob)
+            position = changed.index(bytes.fromhex('17a000000001000017a6000000100000'))
+            changed[position] ^= 1
+            raw_bad = ctypes.create_string_buffer(bytes(changed))
+            assert lib.dt_open(ctypes.byref(dt), raw_bad, len(blob))
+            assert not lib.platform_check(ctypes.byref(dt))
             offset += size
             count += 1
 
@@ -97,6 +110,14 @@ def main():
     assert struct.unpack_from("<Q", kernel, 8)[0] == 0x80000
     assert struct.unpack_from("<Q", kernel, 16)[0] == len(kernel)
     assert kernel_addr == 0x8000
+    if mode == "05":
+        from embed import validate
+        hits = [i for i in range(0, len(kernel) - 16, 4096) if kernel[i:i + 8] == b"FLAMEPLD"]
+        assert len(hits) == 1
+        offset = hits[0]
+        size = struct.unpack_from('<Q', kernel, offset + 8)[0]
+        assert len(kernel) <= 0x4000000 and size == len(kernel) - offset - 16
+        validate(kernel[offset + 16:])
     dtb_offset = 4096 + (kernel_size + 4095) // 4096 * 4096 + (rd_size + 4095) // 4096 * 4096
     dtb_size = struct.unpack_from("<I", image, 1648)[0]
     assert image[dtb_offset:dtb_offset + dtb_size] == dtbs

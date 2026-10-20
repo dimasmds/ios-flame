@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build only a temporary Pixel diagnostic image. Does not access the phone.
+# Build a temporary Pixel diagnostic/early-kernel image. Does not access the phone.
 set -euo pipefail
 cd "$(dirname "$0")"
 mode="${1:-01}"
-case "$mode" in 01|02|03|04) ;; *) echo 'Usage: bash flame/build.sh [01|02|03|04]' >&2; exit 1 ;; esac
+case "$mode" in 01|02|03|04) ;; 05) test -f "${2:-}" ;; *) echo 'Usage: bash flame/build.sh [01|02|03|04|05 PAYLOAD]' >&2; exit 1 ;; esac
 mkdir -p out
 sources=../research/flame-sources
 if [[ ! -f "$sources/sm8150.dtb" || ! -f "$sources/sm8150-v2.dtb" || ! -f "$sources/avbtool.py" || ! -f "$sources/mkbootimg.py" || ! -f "$sources/gki/generate_gki_certificate.py" ]]; then
@@ -15,18 +15,20 @@ flags=(-O2 -ffreestanding -nostdlib -fno-pic -fno-pie -fno-jump-tables -mgeneral
 if [[ "$mode" != 01 ]]; then flags+=(-DPROBE_MAP); fi
 if [[ "$mode" == 03 ]]; then flags+=(-DPROBE_RAM); fi
 if [[ "$mode" == 04 ]]; then flags+=(-DPROBE_MMU); fi
-for source in start.S probe.c fdt.c memory.c ram.c mmu.c; do
+if [[ "$mode" == 05 ]]; then flags+=(-DPROBE_KERNEL); fi
+for source in start.S probe.c fdt.c memory.c ram.c mmu.c loader.c platform.c; do
     "$cc" "${flags[@]}" -c "$source" -o "out/${source%.*}.o"
 done
-if "${CROSS_COMPILE:-aarch64-linux-gnu-}readelf" -r out/probe.o out/fdt.o out/memory.o out/ram.o out/mmu.o | rg -q 'ABS64'; then
+if "${CROSS_COMPILE:-aarch64-linux-gnu-}readelf" -r out/probe.o out/fdt.o out/memory.o out/ram.o out/mmu.o out/loader.o out/platform.o | rg -q 'ABS64'; then
     echo 'Unexpected absolute relocation in position-independent probe.' >&2
     exit 1
 fi
 "$cc" "${flags[@]}" -static -no-pie -T probe.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
-    out/start.o out/probe.o out/fdt.o out/memory.o out/ram.o out/mmu.o -o out/probe.elf
+    out/start.o out/probe.o out/fdt.o out/memory.o out/ram.o out/mmu.o out/loader.o out/platform.o -o out/probe.elf
 "${CROSS_COMPILE:-aarch64-linux-gnu-}objcopy" -O binary out/probe.elf out/Image
 size=$("${CROSS_COMPILE:-aarch64-linux-gnu-}nm" out/probe.elf | awk '$3=="_end"{print $1}')
 truncate -s "$((16#$size))" out/Image
+if [[ "$mode" == 05 ]]; then python3 embed.py "$2"; fi
 python3 lz4_image.py out/Image out/Image.lz4
 python3 - <<'PY'
 import gzip

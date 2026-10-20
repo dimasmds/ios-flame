@@ -4,6 +4,8 @@
 #include "memory.h"
 #include "ram.h"
 #include "mmu.h"
+#include "loader.h"
+#include "platform.h"
 #include "../shim/font.h"
 
 #define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
@@ -104,7 +106,26 @@ void probe_main(uintptr_t fdt_address)
     screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
 #ifdef PROBE_MAP
-#ifdef PROBE_MMU
+#ifdef PROBE_KERNEL
+    line("PIXEL 4 / FLAME - XNU TEST 05");
+    line("EARLY CONSOLE - NO STORAGE DRIVER");
+    uint64_t image_size = *(const uint64_t *)(_head + 16);
+    uintptr_t image_start = (uintptr_t)_head;
+    uintptr_t embedded = ((uintptr_t)_end + 0xfff) & ~0xfffULL;
+    if (image_size > FLAME_IMAGE_MAX || image_size < embedded - image_start + 16 ||
+        image_start > UINTPTR_MAX - image_size || image_start + image_size > fdt_address) {
+        line("EMBEDDED IMAGE BOUNDS REJECTED"); wait_seconds(120); reset();
+    }
+    const char tag[] = "FLAMEPLD";
+    for (unsigned i = 0; i < 8; i++)
+        if (((const char *)embedded)[i] != tag[i]) {
+            line("EMBEDDED PAYLOAD TAG REJECTED"); wait_seconds(120); reset();
+        }
+    uint64_t payload_size = *(const uint64_t *)(embedded + 8);
+    if (payload_size != image_start + image_size - embedded - 16) {
+        line("EMBEDDED PAYLOAD LENGTH REJECTED"); wait_seconds(120); reset();
+    }
+#elif defined(PROBE_MMU)
     line("PIXEL 4 / FLAME - MMU PROBE 04");
     line("16K IDENTITY TRANSLATION TEST");
 #elif defined(PROBE_RAM)
@@ -115,7 +136,13 @@ void probe_main(uintptr_t fdt_address)
     line("READ-ONLY MEMORY MAP CHECK");
 #endif
     struct map_report map;
-    map_check(&dt, 0x100000000ULL, 0x40000000ULL, (uintptr_t)_head, (uintptr_t)_end, &map);
+    map_check(&dt, 0x100000000ULL, 0x40000000ULL, (uintptr_t)_head,
+#ifdef PROBE_KERNEL
+              image_start + image_size,
+#else
+              (uintptr_t)_end,
+#endif
+              &map);
     hex("CANDIDATE", map.candidate);
     hex("SIZE", map.size);
     hex("IN RAM", map.contained);
@@ -128,14 +155,39 @@ void probe_main(uintptr_t fdt_address)
     hex("CONFLICTS", map.conflicts);
     hex("MAP ERRORS", map.errors);
     if (!map.errors && !map.conflicts && !map.unbounded_pools) {
-#if defined(PROBE_RAM) || defined(PROBE_MMU)
+#if defined(PROBE_RAM) || defined(PROBE_MMU) || defined(PROBE_KERNEL)
         line("NO DT CONFLICTS - TEST PERMITTED");
 #else
         line("NO DT CONFLICTS - NOT RAM TESTED");
 #endif
     } else
         line("CANDIDATE NOT CLEARED FOR XNU");
-#ifdef PROBE_MMU
+#ifdef PROBE_KERNEL
+    uint64_t sctlr = READ("sctlr_el1");
+    if (map.errors || map.conflicts || map.unbounded_pools || !map.contained ||
+        READ("CurrentEL") != 4 || (sctlr & 5) || (READ("mpidr_el1") & 0xff00ffffffULL) ||
+        !platform_check(&dt) || READ("cntfrq_el0") != 19200000 ||
+        ((READ("id_aa64mmfr0_el1") >> 20) & 15) != 1) line("KERNEL PRECONDITIONS FAILED");
+    else {
+        struct load_plan plan;
+        const void *payload = (const void *)(embedded + 16);
+        const char *error = payload_validate(payload, payload_size, &plan);
+        if (error) line(error);
+        else {
+            line("BOUNDED PAYLOAD VERIFIED");
+            hex("KERNEL ENTRY", FLAME_RAM_BASE + plan.entry);
+            hex("BOOT ARGS", FLAME_RAM_BASE + plan.args);
+            hex("KERNEL DATA END", FLAME_RAM_BASE + plan.top);
+            line("COPYING KERNEL AND DEVICE TREE");
+            payload_materialize(payload, &plan, FLAME_RAM_BASE);
+            line("JUMPING TO XNU - CAPTURE SCREEN");
+            wait_seconds(2);
+            __asm__ volatile("dsb sy; ic iallu; dsb sy; isb" ::: "memory");
+            ((void (*)(uint64_t))(uintptr_t)(FLAME_RAM_BASE + plan.entry))(FLAME_RAM_BASE + plan.args);
+            line("XNU RETURNED UNEXPECTEDLY");
+        }
+    }
+#elif defined(PROBE_MMU)
     if (!map.errors && !map.conflicts && !map.unbounded_pools && map.contained) {
         struct mmu_report mmu;
         uintptr_t first = map.candidate, last = map.candidate + map.size - RAM_TEST_PAGE;

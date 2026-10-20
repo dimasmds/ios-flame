@@ -233,3 +233,35 @@ The first build uses commit `5677199723efe6d6c840e97381da7bf10e0bef18`:
 The first compilation failed because the Pixel C mapping code used the
 assembly-only `PGBYTES` macro. The C code now uses `ARM_PGBYTES`. A successful
 artifact and a bounded Pixel payload loader are still needed before booting it.
+
+Corrected build: [run 39444210854](https://github.com/dimasmds/ios-flame/actions/runs/39444210854),
+commit `ef12e803268bb69f8b73eb8360cd1a7e2773aadf`, currently compiling.
+
+## Bounded kernel loader (test 05)
+
+`flame/loader.c` validates the payload before writing candidate RAM: exact
+physical profile, segment count and bounds, non-overlapping destination segments,
+file-backed aligned entry, ADT and boot-argument placement, command termination,
+and source/destination separation. Host tests execute the actual copy code and
+check BSS clearing, untouched gaps, and the 736-byte boot-argument ABI.
+The embedded payload has an explicit length covered by the arm64 Image size;
+decompressed images larger than 64 MiB are rejected.
+
+The runtime repeats the live map checks for the full embedded Image and requires
+EL1, MMU/data cache off, boot affinity zero, 16K support, and the expected timer
+frequency. `platform_check` validates live GIC registers/stride, SoC translation,
+and timer metadata against the fixed early ADT before the kernel handoff.
+
+`flame/pack_kernel.py` requires the CI artifact's pinned XNU commit, current
+19-patch manifest, checksum, and non-PAC arm64 Mach-O. It makes a fresh early
+ADT and resolves chained fixups through the inherited payload packer. No root
+filesystem or storage driver is supplied. Build steps, once CI succeeds:
+
+```sh
+python3 flame/pack_kernel.py research/flame-kernel/RUN_ID
+bash flame/build.sh 05 "$PWD/flame/out/flame-early.payload"
+python3 flame/check.py 05
+```
+
+The synthetic host-test image was renamed `host-validation-05.img` to keep it
+separate from a real kernel image. No test-05 image has been loaded on hardware.

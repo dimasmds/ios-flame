@@ -69,7 +69,9 @@ Actions run 39443010166 at commit 5677199723efe6d6c840e97381da7bf10e0bef18:
 https://github.com/dimasmds/ios-flame/actions/runs/39443010166
 Setup passed; compilation failed in arm_vm_init.c because the Pixel patch used
 assembly-only PGBYTES. Fixed the C additions to use ARM_PGBYTES. No successful
-artifact yet and no Pixel kernel has booted; dispatch the corrected profile.
+artifact yet and no Pixel kernel has booted. Corrected run 39444210854 at
+ef12e803268bb69f8b73eb8360cd1a7e2773aadf is compiling:
+https://github.com/dimasmds/ios-flame/actions/runs/39444210854
 
 Kernel profile: .github/workflows/flame-xnu.yml pins XNU 8796.141.3,
 selects inherited 0001–0018 only, plus flame/patches/0099-flame-early-console.patch.
@@ -77,8 +79,13 @@ This excludes the Redmi storage/input/network drivers. Pixel framebuffer
 viewport gets exact 16K page mappings at bootstrap and final VA; Cortex-A55
 flags and Pixel IONameMatch values are selected. flame/mkadt.py emits a
 one-CPU early ADT with no storage. The 16K MMU translation probe has now passed
-on hardware. A bounded Pixel payload loader remains to be implemented and
-validated; do not reuse the Redmi shim unmodified.
+on hardware. Bounded Pixel loader/test 05 is implemented and host-tested,
+including exact writes, BSS, ABI, overlap and malformed metadata rejection.
+Runtime also validates live GIC/timer metadata and the full embedded Image.
+flame/pack_kernel.py verifies the CI artifact/patch manifest and builds a
+storage-free early payload. Need successful CI artifact, real-payload packaging
+checks, then a temporary hardware attempt. The synthetic fixture image was
+renamed flame/out/host-validation-05.img; never boot it.
 
 Read-only kernel audit: existing upstream buildtree run 39419628786, commit
 2665612a9eabb76b294cbc1b014132c6b89d09db, is extracted under ignored
