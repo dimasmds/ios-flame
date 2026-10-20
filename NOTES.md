@@ -65,7 +65,13 @@ addresses, bounded reads of final L1/L2/L3 descriptors through the still-live
 identity mapping, TCR/TTBR1/PAR output, and targeted alias TLB invalidation.
 If translation fails, the working console stays on its original address and
 prints values before waiting for manual restart. Patch applies/reverses cleanly
-against the pinned bootstrap source. Submit the updated profile to CI.
+against the pinned bootstrap source. Diagnostic build run 39446889472 at commit
+a5b5d635af983f4d2bf91023c31dd99669f1abae is running:
+https://github.com/dimasmds/ios-flame/actions/runs/39446889472
+Earlier run 39446831702 was cancelled after discovering that whitespace cleanup
+had removed required patch context; corrected source patch passed a forward and
+reverse application round trip. Await the current build, pack/verify it, then
+temporarily boot on the now-ready Android device and request the next photo.
 The owner first
 requested local-only work, then explicitly authorized trying GitHub Actions
 after learning GitHub supplies a Mac runner. Publishing a source-only public

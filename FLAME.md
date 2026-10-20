@@ -294,3 +294,8 @@ identity map. It invalidates the newly installed alias's cached translations.
 If translation fails or targets the wrong physical address, the console remains
 on its working identity address and waits for manual restart. This is a
 diagnostic build; the exact cause of the stage-8 stop is still unconfirmed.
+
+Diagnostic build: [run 39446889472](https://github.com/dimasmds/ios-flame/actions/runs/39446889472),
+commit `a5b5d635af983f4d2bf91023c31dd99669f1abae`. Run 39446831702 was cancelled
+after correcting required patch context; the corrected patch passed a complete
+reverse/forward application round trip on the pinned source.
