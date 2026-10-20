@@ -70,7 +70,7 @@ def build(init, output):
         image, mount = work / 'root.dmg', work / 'mount'
         mount.mkdir()
         run('hdiutil', 'create', '-size', '16m', '-fs', 'HFS+', '-volname', 'FlameRAM',
-            '-layout', 'NONE', '-format', 'UDRW', '-o', image)
+            '-layout', 'NONE', '-type', 'UDIF', image)
         attached = False
         try:
             result = subprocess.check_output(['hdiutil', 'attach', '-nobrowse', '-owners', 'on',

@@ -49,7 +49,14 @@ malformed images; no host-device paths are accepted. Packer --hfs-root verifies
 artifact hashes/metadata and complete loader bounds; qemu --hfs-root requires
 HFS mount, PID 1, file-read success and >=2 heartbeats, final FB handoff and no
 observed panic. Eleven malformed/dirty/overflow profile cases rejected locally.
-CI and 150-second emulator validation are next. No new Pixel boot yet.
+CI run 39514318925 at ac62ab32ac1cb35df8d4ac3160fc251294f59587 compiled the
+kernel and passed source/linked checks, but failed at root-image creation:
+https://github.com/dimasmds/ios-flame/actions/runs/39514318925
+hdiutil rejects -format UDRW for blank create (-format requires -srcfolder or
+-srcdevice). Corrected to -type UDIF with positional image path. Moved probe/
+root preparation before kernel build so image-tool errors fail quickly.
+Failed run uploaded no artifact. Next: dispatch corrected workflow, then
+150-second emulator validation. No new Pixel boot yet.
 
 **Completed test 05c: XNU reaches root-device discovery on Pixel.**
 Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,

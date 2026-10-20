@@ -565,3 +565,11 @@ requires an HFS mount, PID 1 banner, successful file read and >=2 heartbeats.
 All 28 patches apply locally; source/profile, Python/script syntax, relocation
 and malformed/dirty/out-of-bounds image checks pass. CI/emulator and a new
 Pixel hardware test are pending.
+
+
+First HFS build run 39514318925 compiled the kernel, passed source/linked
+checks and assembled both probes, then failed creating the blank image:
+hdiutil requires a source folder/device when -format is specified. Blank image
+creation now uses -type UDIF (read/write) and a positional output path. Image
+preparation runs before kernel compilation to catch this class of error early.
+No artifact was uploaded from that failed run; no new Pixel boot occurred.

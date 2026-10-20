@@ -36,6 +36,15 @@ jobs:
           echo "DEVELOPER_DIR=$XC/Contents/Developer" >> "$GITHUB_ENV"
           sudo xcode-select -s "$XC"
           xcodebuild -version
+      - name: Build RAM userspace probes and filesystem
+        run: |
+          mkdir -p flame-kernel
+          # A source-built syscall probe, not Apple launchd or iOS firmware.
+          xcrun clang -target arm64-apple-ios16.0 -c tools/sweet-init.S -o flame-init.o
+          python3 tools/mkinit.py flame-init.o flame-kernel/flame-init
+          xcrun clang -target arm64-apple-ios16.0 -DFLAME_HFS_TEST -c tools/sweet-init.S -o flame-fs-init.o
+          python3 tools/mkinit.py flame-fs-init.o flame-kernel/flame-fs-init
+          python3 flame/mkroot.py flame-kernel/flame-fs-init flame-kernel/flame-root.hfs
       - name: Build kernel
         working-directory: dxb
         run: bash build.sh
@@ -43,15 +52,8 @@ jobs:
         run: |
           python3 flame/stage_kernel.py verify dxb/xnu
           python3 flame/check_kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
-          mkdir -p flame-kernel
           cp dxb/fakeroot/System/Library/Kernels/kernel.development.sweet flame-kernel/
           cp dxb/flame-patches.json flame-kernel/
-          # A source-built syscall probe, not Apple launchd or iOS firmware.
-          xcrun clang -target arm64-apple-ios16.0 -c tools/sweet-init.S -o flame-init.o
-          python3 tools/mkinit.py flame-init.o flame-kernel/flame-init
-          xcrun clang -target arm64-apple-ios16.0 -DFLAME_HFS_TEST -c tools/sweet-init.S -o flame-fs-init.o
-          python3 tools/mkinit.py flame-fs-init.o flame-kernel/flame-fs-init
-          python3 flame/mkroot.py flame-kernel/flame-fs-init flame-kernel/flame-root.hfs
           git rev-parse HEAD > flame-kernel/port-commit.txt
           git -C dxb/xnu rev-parse HEAD > flame-kernel/xnu-commit.txt
           shasum -a 256 flame-kernel/kernel.development.sweet > flame-kernel/SHA256SUMS
