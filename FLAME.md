@@ -1,7 +1,8 @@
 # Pixel 4 (flame) bring-up
 
-This branch starts a new SM8150 port. **XNU reaches root-device discovery on
-the Pixel; iOS userland has not booted.**
+This branch starts a new SM8150 port. **XNU runs a static userspace test program
+from RAM on the Pixel, confirmed by the owner's heartbeat report. Apple iOS
+userland has not booted.**
 The inherited README describes the Redmi devices, not Pixel support.
 
 ## Observed device
@@ -470,9 +471,9 @@ snapshot. Its default duration is 75 seconds; an arbitrary early blank/stalled
 screen does not count as a pass.
 
 
-## Next milestone: a RAM-only userspace probe
+## RAM-only userspace probe
 
-The next source profile selects 0001–0025 plus 0027 and Pixel0099 (27 patches),
+The RAM-init source profile selects 0001–0025 plus 0027 and Pixel0099 (27 patches),
 the two pinned dependency staging scripts, and tools/sweet-init.S + mkinit.py:
 31 checksummed source inputs. Newly enabled mockfs serves a single Mach-O RAM
 device as /sbin/launchd and provides /dev for devfs. Patches 0021/0022 fix typed
@@ -509,7 +510,7 @@ page hashes independently match the executable.
 The 150-second emulator run `research/flame-qemu/ram-init-39506928628/` PASSED:
 PID 1 banner and 17 heartbeats, zero unknown glyphs, `kva_active=1`, no
 translation failure and no panic observed in the snapshot. This demonstrates
-the test program running in the emulator, not on the Pixel yet.
+the test program running in the emulator; hardware evidence is recorded below.
 
 Image `flame/out/flame-xnu-39506928628-ram-init.img` SHA-256:
 `c7b3e2f4f490d56db956f4aa1ed3323122c935f709ac0d6e7ec7a74bcd64f711`.
@@ -520,7 +521,16 @@ boot-image checks pass. Entry PA `0x101491488`; RAM program
 **Hardware test 05d:** after verifying Android ready on the unlocked flame and
 matching the exact image hash, temporary `fastboot boot` was accepted: sending
 65536 KB OKAY (1.615s), booting OKAY (4.060s), total 5.707s. Ignored transcript:
-research/flame-device/probe-05d-fastboot.txt. **Photo and Android return are
-pending.** The owner was asked to capture after about 90 seconds. Bootloader
-acceptance is not evidence of the PID 1 probe executing on hardware. No flash
-or erase commands were issued.
+research/flame-device/probe-05d-fastboot.txt. The owner subsequently reported
+**`SWEET init: still alive` on the Pixel**, adding that the PID 1 banner had
+probably been replaced. The heartbeat is emitted by the static userspace probe,
+so this confirms userspace execution and /dev/console output on hardware. The
+program is launched as init via mockfs; no photo independently captures the
+numeric PID, heartbeat count or cadence. Evidence is the owner's text report,
+not a hardware screenshot. It is saved ignored at
+research/flame-device/probe-05d-owner-report.json.
+
+The owner was told to restart Android with Power; **Android return verification
+is pending**. No flash or erase commands were issued. This milestone is a
+source-built userspace probe, not an Apple launchd/iOS UI boot. The next work
+is a RAM-only filesystem test before expanding userland.

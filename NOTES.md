@@ -2,7 +2,17 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: RAM-only userspace test 05d temporarily loaded; awaiting photo.**
+**Latest: owner confirms the RAM-only userspace heartbeat on the Pixel (05d).**
+Owner text: "yes it's shown SWEET init: still alive. init running as PID 1
+already replaced i think". This establishes the source-built test program is
+executing in userspace and writing to /dev/console on real hardware. It is
+launched as init via mockfs; the numeric PID banner is not independently
+captured on hardware. No photo or heartbeat count was supplied. Do not present
+this text report as photographic evidence. Report saved ignored at
+research/flame-device/probe-05d-owner-report.json. Owner was told to restart
+Android with Power; return verification is pending. Next step: verify Android
+return, then prepare a RAM-only filesystem test before expanding userland.
+No Apple iOS userland or GUI has booted.
 CI 39506928628 (14490b8a02a410c15e5e8298390b95070a4cab66) succeeded. The
 150-second QEMU test research/flame-qemu/ram-init-39506928628 PASSED: visible
 PID 1 banner, 17 heartbeats, kva_active=1, zero unknown glyphs, no panic observed.
@@ -18,11 +28,9 @@ Entry PA 0x101491488, RAM init 0x102070000+0x8000, boot args 0x10207c000,
 top 0x102080000. Verified flame/boot_completed=1/unlocked and exact image hash
 before another `fastboot boot`: sending 65536 KB OKAY (1.615s), booting OKAY
 (4.060s), total 5.707s. Transcript research/flame-device/probe-05d-fastboot.txt.
-No flash/erase/persistent filesystem writes. Bootloader acceptance alone does
-not prove userspace on the Pixel. Owner asked for photo after about 90 seconds,
-ideally showing `init running as PID 1` and repeated `SWEET init: still alive`.
-Await photo before any further reboot; then verify Android return. This source
-program is not Apple launchd/iOS userland. No new firmware was downloaded.
+No flash/erase/persistent filesystem writes. After loading, the owner reported
+the userspace heartbeat as recorded above. Android return is pending. This
+source program is not Apple launchd/iOS userland. No new firmware was downloaded.
 
 **Completed test 05c: XNU reaches root-device discovery on Pixel.**
 Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,
@@ -56,7 +64,8 @@ and packages the static arm64 test program and checksums it. Packer's explicit
 PID 1 and at least two heartbeats, no panic, plus final framebuffer handoff.
 CI run 39506928628 at 14490b8a02a410c15e5e8298390b95070a4cab66 succeeded:
 https://github.com/dimasmds/ios-flame/actions/runs/39506928628
-150-second emulator validation passed; actual Pixel test 05d is pending as above.
+150-second emulator validation passed; the owner confirms the Pixel heartbeat
+as above. Android return verification is pending.
 Persistent storage access and destructive writes remain outside authorization.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
