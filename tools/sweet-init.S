@@ -11,6 +11,8 @@
  * Raw XNU syscalls: number in x16, svc #0x80, carry set on error.
  */
 #define SYS_write	4
+#define SYS_read		3
+#define SYS_close	6
 #define SYS_open	5
 #define SYS_getpid	20
 #define SYS_select	93
@@ -58,6 +60,53 @@ _start:
 	sub	x2, x2, x1
 	bl	write_console
 
+#ifdef FLAME_HFS_TEST
+	/* Read a separate file to prove that the HFS directory/data paths work. */
+	adr	x0, check_path
+	mov	x1, #0
+	mov	x2, #0
+	mov	x16, #SYS_open
+	svc	#0x80
+	b.cs	fs_fail
+	mov	x20, x0
+	sub	sp, sp, #64
+	mov	x1, sp
+	mov	x2, #22
+	mov	x16, #SYS_read
+	svc	#0x80
+	b.cs	fs_fail_stack
+	cmp	x0, #22
+	b.ne	fs_fail_stack
+	adr	x9, check_contents
+	mov	x10, sp
+	mov	x11, #22
+fs_compare:
+	ldrb	w12, [x9], #1
+	ldrb	w13, [x10], #1
+	cmp	w12, w13
+	b.ne	fs_fail_stack
+	subs	x11, x11, #1
+	b.ne	fs_compare
+	add	sp, sp, #64
+	mov	x0, x20
+	mov	x16, #SYS_close
+	svc	#0x80
+	b.cs	fs_fail
+	adr	x1, fs_ok
+	adr	x2, fs_ok_end
+	sub	x2, x2, x1
+	bl	write_console
+	b	tick
+fs_fail_stack:
+	add	sp, sp, #64
+fs_fail:
+	adr	x1, fs_error
+	adr	x2, fs_error_end
+	sub	x2, x2, x1
+	bl	write_console
+	b	hang
+#endif
+
 tick:
 	/* select(0, NULL, NULL, NULL, &5s) as a portable sleep */
 	mov	x0, #0
@@ -97,3 +146,15 @@ hello_tail:
 alive:
 	.ascii	"SWEET init: still alive\n"
 alive_end:
+#ifdef FLAME_HFS_TEST
+check_path:
+	.asciz	"/etc/flame-test"
+check_contents:
+	.ascii	"FLAME HFS RAM ROOT OK\n"
+fs_ok:
+	.ascii	"FLAME HFS: file read verified\n"
+fs_ok_end:
+fs_error:
+	.ascii	"FLAME HFS: file read FAILED\n"
+fs_error_end:
+#endif

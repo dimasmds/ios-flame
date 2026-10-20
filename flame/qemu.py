@@ -18,6 +18,7 @@ import time
 ROOT = Path(__file__).resolve().parent
 from mkadt import build as build_adt
 from check_kernel import check_kernel
+from mkroot import inspect_hfs
 sys.path.append(str(ROOT.parent / 'tools'))
 import adt
 import mkpayload
@@ -54,7 +55,10 @@ def screen_milestones(screen):
                 ('Waiting on <dict' in unwrapped and 'IOMedia' in unwrapped and 'Apple_HFS' in unwrapped)),
             'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen,
             'userspace_pid1_visible': 'SWEET userspace: init running as PID 1' in unwrapped,
-            'userspace_heartbeats': unwrapped.count('SWEET init: still alive')}
+            'userspace_heartbeats': unwrapped.count('SWEET init: still alive'),
+            'hfs_mounted': 'hfs: mounted FlameRAM on device' in unwrapped,
+            'filesystem_read_verified': 'FLAME HFS: file read verified' in unwrapped,
+            'filesystem_read_failed': 'FLAME HFS: file read FAILED' in unwrapped}
 
 
 def main():
@@ -62,13 +66,15 @@ def main():
     parser.add_argument('kernel', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--seconds', type=float, default=75)
-    parser.add_argument('--ram-init', type=Path, help='RAM-only static PID 1 test program')
+    roots = parser.add_mutually_exclusive_group()
+    roots.add_argument('--ram-init', type=Path, help='RAM-only static PID 1 test program')
+    roots.add_argument('--hfs-root', type=Path, help='16 MiB RAM-only HFS+ test filesystem')
     parser.add_argument('--reproduce-05b', action='store_true', help='Emulate only the exact known-broken 05b kernel')
     args = parser.parse_args()
     kernel, output = args.kernel.resolve(), args.output.resolve()
     kernel_hash = hashlib.sha256(kernel.read_bytes()).hexdigest()
     if args.reproduce_05b:
-        if args.ram_init:
+        if args.ram_init or args.hfs_root:
             raise ValueError('The 05b negative control must not contain a RAM root')
         if kernel_hash != '3237cef33de90789bcf2ff2e7e125977265b706c77a0eacfd1ee43c6c561cecb':
             raise ValueError('Reproduction option requires the exact 05b kernel')
@@ -80,10 +86,13 @@ def main():
     tree = output / 'qemu-only.adt'
     tree.write_bytes(adt.serialize(build_adt(qemu=True, seed=bytes(range(64)))))
     command = 'debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam -noprogress wdt=-1'
-    if args.ram_init:
+    ram_root = args.hfs_root or args.ram_init
+    if args.hfs_root:
+        inspect_hfs(args.hfs_root.read_bytes())
+    if ram_root:
         command += ' rd=md0'
     payload, info = mkpayload.build(str(kernel), str(tree), command,
-                                  str(args.ram_init.resolve()) if args.ram_init else None)
+                                  str(ram_root.resolve()) if ram_root else None)
     (output / 'qemu-only.payload').write_bytes(payload)
     font = qemu.payload_data(payload, symbol_address(kernel, '_iso_font'), 256 * 16)
     physical, image, boot_args, entry = qemu.build_image(payload)
@@ -126,6 +135,8 @@ def main():
         result.update({'simulation_only': True, 'qemu_version': version, 'kernel_sha256': kernel_hash,
                        'duration_seconds': args.seconds,
                        'ram_init_sha256': hashlib.sha256(args.ram_init.read_bytes()).hexdigest() if args.ram_init else None,
+                       'ram_root_sha256': hashlib.sha256(ram_root.read_bytes()).hexdigest() if ram_root else None,
+                       'hfs_root': bool(args.hfs_root),
                        'kva_active': kva_active,
                        'framebuffer_handoff_verified': kva_active == 1})
         result.update(screen_milestones(screen))
@@ -133,7 +144,10 @@ def main():
         print(screen, flush=True)
         print(json.dumps(result, indent=2), flush=True)
         expected_progress = (result['userspace_pid1_visible'] and result['userspace_heartbeats'] >= 2
-                             if args.ram_init else result['waiting_for_root'])
+                             if ram_root else result['waiting_for_root'])
+        if args.hfs_root:
+            expected_progress = (expected_progress and result['hfs_mounted'] and
+                                 result['filesystem_read_verified'] and not result['filesystem_read_failed'])
         return 0 if args.reproduce_05b and result['translation_check_failed'] else (
             0 if not args.reproduce_05b and result['framebuffer_handoff_verified'] and
                  result['status'] == 'no_panic_observed' and expected_progress and

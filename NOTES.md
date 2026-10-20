@@ -10,8 +10,9 @@ launched as init via mockfs; the numeric PID banner is not independently
 captured on hardware. No photo or heartbeat count was supplied. Do not present
 this text report as photographic evidence. Report saved ignored at
 research/flame-device/probe-05d-owner-report.json. Owner was told to restart
-Android with Power; return verification is pending. Next step: verify Android
-return, then prepare a RAM-only filesystem test before expanding userland.
+Android with Power; the owner now reports Android ready and adb verifies
+flame / boot_completed=1 / boot reason bootloader. Return log:
+research/flame-device/probe-05d-android-return.json. Test 05d is complete.
 No Apple iOS userland or GUI has booted.
 CI 39506928628 (14490b8a02a410c15e5e8298390b95070a4cab66) succeeded. The
 150-second QEMU test research/flame-qemu/ram-init-39506928628 PASSED: visible
@@ -29,8 +30,26 @@ top 0x102080000. Verified flame/boot_completed=1/unlocked and exact image hash
 before another `fastboot boot`: sending 65536 KB OKAY (1.615s), booting OKAY
 (4.060s), total 5.707s. Transcript research/flame-device/probe-05d-fastboot.txt.
 No flash/erase/persistent filesystem writes. After loading, the owner reported
-the userspace heartbeat as recorded above. Android return is pending. This
+the userspace heartbeat as recorded above. Android return is verified. This
 source program is not Apple launchd/iOS userland. No new firmware was downloaded.
+
+**Next: real HFS+ filesystem in RAM, no UFS controller or device partitions.**
+Added audited 0026 built-in Apple OSS HFS (627.100.6, immutable commit
+31d5ec238dfab485e78a9a30b8b92d13e8914f03) and its staging helper. Current
+selection is 0001–0027 +Pixel0099, three dependency helpers, the two existing
+init source/build tools and flame/mkroot.py: 28 patches / 34 source inputs.
+All patches apply to fresh pinned XNU, profile/script checks pass. The optional
+FLAME_HFS_TEST init variant reads and compares a separate /etc/flame-test file,
+prints `FLAME HFS: file read verified`, then heartbeats. A failed read visibly
+reports FAILED and never heartbeats. GNU assembly has no relocations.
+CI builds a 16 MiB HFS+ image with /sbin/launchd, /dev and the probe file using
+macOS hdiutil in a private temporary directory; root-owned files are inside
+that image. Raw-volume/header bounds and clean-unmount checks reject dirty or
+malformed images; no host-device paths are accepted. Packer --hfs-root verifies
+artifact hashes/metadata and complete loader bounds; qemu --hfs-root requires
+HFS mount, PID 1, file-read success and >=2 heartbeats, final FB handoff and no
+observed panic. Eleven malformed/dirty/overflow profile cases rejected locally.
+CI and 150-second emulator validation are next. No new Pixel boot yet.
 
 **Completed test 05c: XNU reaches root-device discovery on Pixel.**
 Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,
@@ -65,7 +84,7 @@ PID 1 and at least two heartbeats, no panic, plus final framebuffer handoff.
 CI run 39506928628 at 14490b8a02a410c15e5e8298390b95070a4cab66 succeeded:
 https://github.com/dimasmds/ios-flame/actions/runs/39506928628
 150-second emulator validation passed; the owner confirms the Pixel heartbeat
-as above. Android return verification is pending.
+as above. Android return is verified.
 Persistent storage access and destructive writes remain outside authorization.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB

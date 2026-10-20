@@ -530,7 +530,38 @@ numeric PID, heartbeat count or cadence. Evidence is the owner's text report,
 not a hardware screenshot. It is saved ignored at
 research/flame-device/probe-05d-owner-report.json.
 
-The owner was told to restart Android with Power; **Android return verification
-is pending**. No flash or erase commands were issued. This milestone is a
+The owner restarted Android; **return is verified** by adb (flame,
+boot_completed=1, boot reason bootloader). No flash or erase commands were issued. This milestone is a
 source-built userspace probe, not an Apple launchd/iOS UI boot. The next work
 is a RAM-only filesystem test before expanding userland.
+
+
+## Next milestone: HFS+ root in RAM
+
+Profile 0001–0027 plus Pixel0099 adds the audited built-in HFS integration and
+its pinned source-staging helper (28 patches / 34 source inputs total).
+[Apple OSS hfs-627.100.6](https://github.com/apple-oss-distributions/hfs/tree/31d5ec238dfab485e78a9a30b8b92d13e8914f03)
+is staged at its immutable commit; no UFS controller or later Redmi drivers
+are selected. mockfs now rejects non-Mach-O root devices, allowing HFS to
+mount the RAM filesystem. The raw-program RAM root remains available.
+
+CI builds a 16 MiB HFS+ image containing a second static init variant at
+/sbin/launchd, a /dev mount point and /etc/flame-test. The variant reads and
+compares the file's 22 bytes, prints `FLAME HFS: file read verified` on success,
+then heartbeats. A failed read prints FAILED and does not heartbeat.
+
+flame/mkroot.py creates and populates only a private temporary macOS disk image,
+then detaches it cleanly. It accepts flat UDRW output or strips a bounded UDIF
+trailer; the trailer offsets follow the
+[libmodi format research](https://github.com/libyal/libmodi/blob/main/documentation/Mac%20OS%20disk%20image%20types.asciidoc).
+The raw-volume guard checks exact size, HFS+ version, block counts, clean state
+and alternate header. It is a profile check, not a filesystem integrity checker;
+actual mount/exec/read behavior must pass the kernel emulator test.
+
+The packer's explicit --hfs-root option verifies root/init/metadata hashes,
+embeds the image in bounded kernel-managed RAM and selects rd=md0. No rootrw
+or UFS arguments are supplied. The simulator's --hfs-root PATH additionally
+requires an HFS mount, PID 1 banner, successful file read and >=2 heartbeats.
+All 28 patches apply locally; source/profile, Python/script syntax, relocation
+and malformed/dirty/out-of-bounds image checks pass. CI/emulator and a new
+Pixel hardware test are pending.
