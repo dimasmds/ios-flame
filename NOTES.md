@@ -68,9 +68,8 @@ https://github.com/dimasmds/ios-flame now has default branch pixel4-bringup.
 Actions run 39443010166 at commit 5677199723efe6d6c840e97381da7bf10e0bef18:
 https://github.com/dimasmds/ios-flame/actions/runs/39443010166
 Setup passed; compilation failed in arm_vm_init.c because the Pixel patch used
-assembly-only PGBYTES. Fixed the C additions to use ARM_PGBYTES. No successful
-artifact yet and no Pixel kernel has booted. Corrected run 39444210854 at
-ef12e803268bb69f8b73eb8360cd1a7e2773aadf is compiling:
+assembly-only PGBYTES. Fixed the C additions to use ARM_PGBYTES. Corrected run
+39444210854 at ef12e803268bb69f8b73eb8360cd1a7e2773aadf **succeeded**:
 https://github.com/dimasmds/ios-flame/actions/runs/39444210854
 
 Kernel profile: .github/workflows/flame-xnu.yml pins XNU 8796.141.3,
@@ -83,8 +82,10 @@ on hardware. Bounded Pixel loader/test 05 is implemented and host-tested,
 including exact writes, BSS, ABI, overlap and malformed metadata rejection.
 Runtime also validates live GIC/timer metadata and the full embedded Image.
 flame/pack_kernel.py verifies the CI artifact/patch manifest and builds a
-storage-free early payload. Need successful CI artifact, real-payload packaging
-checks, then a temporary hardware attempt. The synthetic fixture image was
+storage-free early payload. The artifact in research/flame-kernel/39444210854
+passed those checks; real test-05 packaging/ADT checks pass. Entry PA 0x101484488,
+boot args 0x102060000. Image hash/details in FLAME.md. Next is a temporary
+hardware attempt; no Pixel kernel has booted yet. The synthetic fixture image was
 renamed flame/out/host-validation-05.img; never boot it.
 
 Read-only kernel audit: existing upstream buildtree run 39419628786, commit

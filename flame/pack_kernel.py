@@ -7,11 +7,12 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT.parent / 'tools'))
+sys.path.append(str(ROOT.parent / 'tools'))
+# Load the Pixel generator before inherited tools adjust sys.path themselves.
+from mkadt import build as build_adt
 import adt
 import mkpayload
 from embed import validate
-from mkadt import build as build_adt
 
 XNU_COMMIT = '1b191cb58250d0705d8a51287127505aa4bc0789'
 
@@ -41,7 +42,10 @@ def main():
     out = ROOT / 'out'
     out.mkdir(exist_ok=True)
     tree = out / 'flame-early.adt'
-    tree.write_bytes(adt.serialize(build_adt()))
+    root = build_adt()
+    if root.prop('model') != b'Google Pixel 4\0' or root.prop('compatible').split(b'\0')[0] != b'google,flame':
+        raise ValueError('Expected the Pixel ADT generator')
+    tree.write_bytes(adt.serialize(root))
     # No root filesystem, peripheral driver options, or persistent logs.
     command = 'debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam -noprogress wdt=-1'
     payload, info = mkpayload.build(str(kernel), str(tree), command)

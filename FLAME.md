@@ -231,11 +231,13 @@ Published source branch: `dimasmds/ios-flame`, `pixel4-bringup`.
 The first build uses commit `5677199723efe6d6c840e97381da7bf10e0bef18`:
 [Actions run 39443010166](https://github.com/dimasmds/ios-flame/actions/runs/39443010166).
 The first compilation failed because the Pixel C mapping code used the
-assembly-only `PGBYTES` macro. The C code now uses `ARM_PGBYTES`. A successful
-artifact and a bounded Pixel payload loader are still needed before booting it.
+assembly-only `PGBYTES` macro. The C code now uses `ARM_PGBYTES`.
 
 Corrected build: [run 39444210854](https://github.com/dimasmds/ios-flame/actions/runs/39444210854),
-commit `ef12e803268bb69f8b73eb8360cd1a7e2773aadf`, currently compiling.
+commit `ef12e803268bb69f8b73eb8360cd1a7e2773aadf`, **succeeded**. Artifact downloaded
+to ignored `research/flame-kernel/39444210854/`; source profile and checksum
+verified. Kernel SHA-256:
+`a97741a8a4135575c2830fdc41e4389525ceeb77ec239fb6810492f33bedd757`.
 
 ## Bounded kernel loader (test 05)
 
@@ -264,4 +266,10 @@ python3 flame/check.py 05
 ```
 
 The synthetic host-test image was renamed `host-validation-05.img` to keep it
-separate from a real kernel image. No test-05 image has been loaded on hardware.
+separate from a real kernel image. The real CI kernel was packed successfully;
+full host packaging checks passed. Actual ADT inspection confirms Pixel model,
+one CPU, correct candidate RAM, and no UFS. Loader entry PA `0x101484488`,
+boot arguments `0x102060000`, top of kernel data `0x102064000`.
+The first real test-05 image SHA-256 is
+`bcece2ab63018661d4f648102e2305f7542d11c9d87ab41bb9debd7d0fe4dca0`.
+It has not yet been loaded on hardware.
