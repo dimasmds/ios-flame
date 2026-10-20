@@ -2,6 +2,27 @@
 
 ## Pixel 4 local handoff — 2026-10-20 (read before inherited Redmi notes)
 
+**Latest: owner is sleeping; continue source/CI/emulator work without requiring
+hands-on help.** Owner supplied flame-ios-6.jpeg for test 05b, then restarted
+and reported Android ready. Avoid hardware experiments that need a manual
+restart or another photo while the owner is unavailable.
+
+05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
+TRANSLATION FAILED. The displayed PAR values are NOT reliable MMU results:
+disassembly of the actual kernel proves Darwin assembly comments out everything
+after `;` in the new inline-asm strings. Only AT executed; ISB/MRS PAR and TLBI
+were absent. Printed values match stale GPRs (PTE, range-check constant, L2
+descriptor). The source now uses newline separators and a noinline translation
+helper. check_kernel.py now checks actual AT/ISB/MRS and both TLBI instructions;
+it rejects the broken 05b artifact. Need build/validate the corrected kernel.
+
+An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
+flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with
+QEMU GIC/timer values; no USB access or Android boot image is involved. A run
+to reproduce 05b is in progress under research/flame-qemu/05b-reproduce;
+output log research/flame-sources/qemu-05b-reproduce.log. Simulation does not
+validate Pixel peripherals. Update this paragraph after the result.
+
 Repository `/home/dimasmds/projects/ios-flame`, branch `pixel4-bringup`, based
 on topaz commit `3eacb48`. The current task is an experimental Pixel 4 port,
 not maintenance of the original author's Redmi. See `FLAME.md` for evidence,

@@ -334,3 +334,30 @@ pending. No flash/erase command was issued. The screen still says test 05;
 the new `FLAME` diagnostic lines distinguish this kernel. Preserved images:
 `flame/out/flame-xnu-39444210854.img` (first stage-8 test) and
 `flame/out/flame-xnu-39448117298.img` (alignment fix); both are ignored.
+
+## Test 05b photo and hands-free investigation
+
+The owner's `flame-ios-6.jpeg` shows stage 8, TTBR1 `0x10206c000`, L2 descriptor
+`0x1011f8003`, and L3 descriptor `0x006000009c400607`. The table alignment fix
+is present. The screen then reports `FLAME FINAL FB TRANSLATION FAILED`.
+
+The displayed PAR values are invalid diagnostic output, not usable hardware
+translation results. Disassembling the exact CI kernel revealed that `;` starts
+a comment in the Darwin assembly used here: only the first instruction in each
+new multi-instruction asm string was emitted. ISB/MRS PAR and the targeted TLBI
+operations were missing. The printed values correspond to stale general
+registers, including the L3 PTE and L2 descriptor. This check therefore stopped
+the kernel without establishing whether the corrected framebuffer mapping works.
+
+The strings now use newline separators, and the translation helper is explicitly
+not inlined. `check_kernel.py` verifies actual compiled AT/ISB/MRS and TLBI
+instructions as well as table placement. The known broken 05b kernel is rejected.
+The owner reports Android ready after restart and is sleeping; subsequent work
+uses source builds and emulation without requesting photos or button presses.
+
+`flame/qemu.py` runs the same console kernel on QEMU's virt machine with the
+Pixel framebuffer address and RAM profile, substituting QEMU's GIC/timer ADT
+values. `flame/qemu.Dockerfile` provides an isolated, unprivileged runtime.
+It dumps and decodes framebuffer RAM into text/PNG and records registers,
+exceptions, kernel SHA and QEMU version. This tests generic kernel execution
+and mappings, not Pixel hardware or its display controller.

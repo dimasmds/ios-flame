@@ -129,11 +129,11 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 +	}
 +}
 +
-+static uint64_t
++static uint64_t __attribute__((noinline))
 +flame_early_translate(uint64_t va)
 +{
 +	uint64_t result;
-+	__asm__ volatile("at s1e1w, %1; isb; mrs %0, par_el1" : "=r"(result) : "r"(va) : "memory");
++	__asm__ volatile("at s1e1w, %1\n\tisb\n\tmrs %0, par_el1" : "=r"(result) : "r"(va) : "memory");
 +	return result;
 +}
 +
@@ -151,7 +151,7 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 +	flame_early_hex("FLAME PAR BEFORE", flame_early_translate(base));
 +	uint64_t last = base + EARLY_WIDTH * EARLY_HEIGHT * 4 - 1;
 +	/* A newly installed alias must not inherit a cached failed translation. */
-+	__asm__ volatile("dsb ishst; tlbi vaae1is, %0; tlbi vaae1is, %1; dsb ish; isb" : :
++	__asm__ volatile("dsb ishst\n\ttlbi vaae1is, %0\n\ttlbi vaae1is, %1\n\tdsb ish\n\tisb" : :
 +	    "r"((base >> 12) & 0xfffffffffffULL), "r"((last >> 12) & 0xfffffffffffULL) : "memory");
 +	uint64_t first_par = flame_early_translate(base);
 +	uint64_t last_par = flame_early_translate(last);

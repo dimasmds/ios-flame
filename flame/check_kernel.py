@@ -10,7 +10,7 @@ def check_kernel(path):
     magic, cpu, subtype, _, commands, command_bytes, _, _ = struct.unpack_from('<8I', data)
     if (magic, cpu, subtype) != (0xfeedfacf, 0x100000c, 0) or commands > 256 or command_bytes > len(data) - 32:
         raise ValueError('Expected bounded non-PAC arm64 Mach-O')
-    sections, symtab = [], None
+    sections, segments, symtab = [], [], None
     offset, end = 32, 32 + command_bytes
     for _ in range(commands):
         if offset + 8 > end:
@@ -22,6 +22,7 @@ def check_kernel(path):
             if size < 72:
                 raise ValueError('Truncated segment command')
             count = struct.unpack_from('<I', data, offset + 64)[0]
+            segments.append(struct.unpack_from('<4Q', data, offset + 24))
             if count > (size - 72) // 80:
                 raise ValueError('Truncated section table')
             for index in range(count):
@@ -41,7 +42,7 @@ def check_kernel(path):
     if start > len(data) or count > (len(data) - start) // 16 or strings > len(data) or string_bytes > len(data) - strings:
         raise ValueError('Symbol/string table outside Mach-O')
     required = {'_flame_fb_l3': 0x4000, '_bootstrap_pagetables': 0x4000}
-    found = {}
+    found, functions = {}, {}
     for index in range(count):
         name, kind, section_index, _, value = struct.unpack_from('<IBBHQ', data, start + index * 16)
         if name >= string_bytes:
@@ -50,6 +51,8 @@ def check_kernel(path):
         if finish < 0:
             raise ValueError('Unterminated symbol name')
         label = data[strings + name:finish].decode(errors='replace')
+        if label in ('_flame_early_translate', '_sweet_early_relocate') and not kind & 0xe0 and (kind & 0xe) == 0xe:
+            functions[label] = value
         if label not in required or kind & 0xe0 or (kind & 0xe) != 0xe:
             continue
         if label in found or not 1 <= section_index <= len(sections):
@@ -62,7 +65,31 @@ def check_kernel(path):
         found[label] = value
     if found.keys() != required.keys():
         raise ValueError(f'Missing page-table symbols: {required.keys() - found.keys()}')
+    if len(functions) != 2:
+        raise ValueError('Missing non-inlined framebuffer translation diagnostic functions')
+
+    def instructions(label, limit):
+        value = functions[label]
+        for address, _, file_offset, file_bytes in segments:
+            if address <= value < address + file_bytes:
+                offset = file_offset + value - address
+                size = min(limit, file_bytes - (value - address))
+                if offset + size > len(data):
+                    raise ValueError('Diagnostic code outside Mach-O')
+                return struct.unpack_from('<' + 'I' * (size // 4), data, offset)
+        raise ValueError('Diagnostic function outside file-backed segments')
+
+    translate = instructions('_flame_early_translate', 128)
+    # Darwin's assembler treats a semicolon as a comment. Check the actual
+    # AT / ISB / MRS sequence so a truncated asm string cannot print stale GPRs.
+    if not any((translate[i] & ~31) == 0xd5087820 and translate[i + 1] == 0xd5033fdf and
+               (translate[i + 2] & ~31) == 0xd5387400 for i in range(len(translate) - 2)):
+        raise ValueError('Compiled framebuffer preflight is missing AT / ISB / MRS PAR_EL1')
+    relocate = instructions('_sweet_early_relocate', 0x4000)
+    if sum((word & ~31) == 0xd5088360 for word in relocate) < 2:
+        raise ValueError('Compiled framebuffer preflight is missing alias TLB invalidations')
     print('PASS: linked Pixel framebuffer and bootstrap tables are 16K aligned in __DATA_CONST')
+    print('PASS: compiled translation preflight includes AT, ISB, PAR read, and both TLBI operations')
     return found
 
 
