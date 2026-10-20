@@ -6,6 +6,7 @@ Repository `/home/dimasmds/projects/ios-flame`, branch `pixel4-bringup`, based
 on topaz commit `3eacb48`. The current task is an experimental Pixel 4 port,
 not maintenance of the original author's Redmi. See `FLAME.md` for evidence,
 build steps, sources, test outcomes, hashes, and outstanding work.
+The first hardware-tested implementation is committed locally as `ba317c4`.
 
 The connected device was verified over adb as Pixel 4 / flame / SM8150,
 Android 13 TP1A.221005.002.B2, already unlocked. The owner confirmed it is a
