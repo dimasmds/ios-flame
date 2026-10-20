@@ -2,16 +2,27 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: owner returned; test 05c temporarily loaded, awaiting screen/photo.**
+**Latest: test 05c photo confirms XNU reaches root-device discovery on Pixel.**
+Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,
+along with libpthread registration, platform expert registration, boot CPU 0
+registered / SGI1 verified / initialization complete, MAC/mbinit, DLIL SUM16 and
+Skywalk self-tests passing, and lo0/gif0/stf0 kernel threads scheduled. The
+framebuffer is circular: the root-wait line appears above earlier startup text.
+The previous stage-8 framebuffer blocker is passed on real hardware. No panic
+backtrace is visible. A generic failed panic-log-to-NVRAM message is also
+visible; do not treat that alone as a kernel panic. No root/userland is supplied.
+Photo transcription: ignored research/flame-device/probe-05c-screen.json.
+The owner was told to hold Power to restart Android; return verification is
+pending. Do not re-boot another experiment before verifying Android return.
+
 Before loading, adb verified flame, boot_completed=1, and unlocked bootloader;
 the preserved CI 39452744863 image SHA256 matched the value below. The same
 verified target accepted `fastboot boot`: sending 65536 KB OKAY (1.602s), booting
 OKAY (4.053s), total 5.686s. Transcript:
 research/flame-device/probe-05c-fastboot.txt. No flash/erase commands.
-Bootloader acceptance is not proof of XNU progress. Await the owner's photo,
-then record the actual last stage/panic/root wait and verify Android return.
-The owner supplied flame-ios-6.jpeg for previous test 05b, then restarted
-and reported Android ready before the overnight source/emulator work.
+Next work: investigate a RAM-backed root path and audit required generic kernel
+providers in source/emulator before preparing another hardware image. Persistent
+storage access and destructive writes remain outside current authorization.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
 TRANSLATION FAILED. The displayed PAR values are NOT reliable MMU results:
@@ -50,9 +61,10 @@ d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3.
 Kernel SHA256 f6813708e9cb0fd402f2bbcbeee2b3b20247d8fe2c6eaf948952bad61b23d494.
 Profile/checksum, actual linked tables/instructions, payload validation and all
 host boot-image checks pass. This image was temporarily loaded on the Pixel
-on 2026-10-21; screen evidence is pending. Actual port validation is Pixel
-framebuffer handoff, GIC/timer/CPU startup and root-device wait. No filesystem
-installation or persistent device writes are authorized by this.
+on 2026-10-21; the owner photo confirms final framebuffer output, SGI1 self-test,
+kernel thread scheduling and root-device wait. Full timer accuracy, SMP and
+peripheral support remain unverified. No filesystem installation or persistent
+device writes are authorized by this.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with

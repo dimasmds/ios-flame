@@ -1,6 +1,6 @@
 # Pixel 4 (flame) bring-up
 
-This branch starts a new SM8150 port. **XNU reaches early VM initialization on
+This branch starts a new SM8150 port. **XNU reaches root-device discovery on
 the Pixel; iOS userland has not booted.**
 The inherited README describes the Redmi devices, not Pixel support.
 
@@ -446,10 +446,22 @@ exact image on the verified Pixel. Preflight checked flame, Android
 boot_completed=1, unlocked bootloader and the image SHA-256. `fastboot boot`
 reported sending 65536 KB OKAY (1.602s), booting OKAY (4.053s), total 5.686s.
 The transcript is ignored at research/flame-device/probe-05c-fastboot.txt.
-**Current screen/photo and Android return are pending.** Bootloader acceptance
-alone does not establish post-stage-8 progress. Actual Pixel framebuffer
-handoff and GIC/timer/CPU behavior need this hardware evidence; emulator results
-do not establish those. No flash or erase commands were issued.
+The owner's `flame-ios-7.jpeg` confirms **root-device discovery on hardware**:
+`Waiting on ... IOMedia ... Apple_HFS` is visible in the circular console above
+older startup text. It also shows libpthread registration, platform expert
+registration, boot CPU 0 registered / SGI1 verified / initialization complete,
+MAC/mbinit, passing DLIL SUM16 and Skywalk self-tests, and kernel threads for
+lo0/gif0/stf0 scheduled. This passes the former stage-8 framebuffer blocker and
+confirms single-core scheduling and the SGI1 interrupt self-test on the Pixel.
+Full timer accuracy and SMP are not established by this photo.
+
+No panic backtrace is visible. The generic `Failed to store the panic-log to
+NVRAM.` line is also present in the passing emulator screen and does not alone
+establish a panic. No storage driver or root filesystem is supplied, so this
+root-device wait is expected; it is not an iOS userland boot. The owner was told
+to restart with Power; **Android return verification is pending**. Transcription
+is ignored at research/flame-device/probe-05c-screen.json. No flash or erase
+commands were issued.
 
 The simulator's normal acceptance criterion now requires root-device discovery
 as well as a completed framebuffer handoff and a fully decoded, panic-free

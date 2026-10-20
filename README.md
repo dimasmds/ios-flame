@@ -1,8 +1,8 @@
 # ios-topaz
 
-**Pixel 4 experiment (`flame`):** XNU reaches early VM initialization on the
-Pixel, with stages 1–8 photographed on hardware. The emulator now reaches
-HFS root-device discovery. iOS userland has not booted.
+**Pixel 4 experiment (`flame`):** XNU reaches HFS root-device discovery on the
+Pixel, confirmed by a hardware photo. Boot CPU registration, the SGI1 interrupt
+self-test and kernel thread scheduling complete. iOS userland has not booted.
 See [FLAME.md](FLAME.md) for build steps, hardware evidence, and current status.
 The Redmi instructions below do not apply to a Pixel.
 
