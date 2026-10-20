@@ -1,9 +1,9 @@
 # ios-topaz
 
-**Local Pixel 4 experiment:** this branch contains initial `flame` diagnostic
-work only. Pixel iOS/XNU boot is not implemented. See [FLAME.md](FLAME.md)
-for hardware evidence and current status. The Redmi instructions below do
-not apply to a Pixel.
+**Pixel 4 experiment (`flame`):** XNU reaches early VM initialization on the
+Pixel, with stages 1–8 photographed on hardware. iOS userland has not booted.
+See [FLAME.md](FLAME.md) for build steps, hardware evidence, and current status.
+The Redmi instructions below do not apply to a Pixel.
 
 **Apple's iOS 16 running on a Redmi Note 12 4G.**
 
