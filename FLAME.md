@@ -272,4 +272,7 @@ one CPU, correct candidate RAM, and no UFS. Loader entry PA `0x101484488`,
 boot arguments `0x102060000`, top of kernel data `0x102064000`.
 The first real test-05 image SHA-256 is
 `bcece2ab63018661d4f648102e2305f7542d11c9d87ab41bb9debd7d0fe4dca0`.
-It has not yet been loaded on hardware.
+The verified Pixel accepted this image through temporary `fastboot boot`:
+sending 64 MiB OKAY (1.619 s), booting OKAY (4.060 s). The owner's screen
+photo and subsequent Android return check are pending. Bootloader acceptance
+does not establish that XNU executed. No flash or erase command was issued.

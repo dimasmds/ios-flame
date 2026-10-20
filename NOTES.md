@@ -85,7 +85,11 @@ flame/pack_kernel.py verifies the CI artifact/patch manifest and builds a
 storage-free early payload. The artifact in research/flame-kernel/39444210854
 passed those checks; real test-05 packaging/ADT checks pass. Entry PA 0x101484488,
 boot args 0x102060000. Image hash/details in FLAME.md. Next is a temporary
-hardware attempt; no Pixel kernel has booted yet. The synthetic fixture image was
+hardware observation: test 05 was temporarily loaded; fastboot sending OKAY
+1.619s and booting OKAY 4.060s. Await the owner's screen/photo, then verify
+Android return. Kernel execution is not yet confirmed. Bootloader transcript
+is research/flame-device/probe-05-fastboot.txt. No flash or erase commands.
+The synthetic fixture image was
 renamed flame/out/host-validation-05.img; never boot it.
 
 Read-only kernel audit: existing upstream buildtree run 39419628786, commit
