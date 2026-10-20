@@ -65,19 +65,23 @@ stage 8. Found concrete linked-image defect: flame_fb_l3 VA fffffe0007c12000
 16K attribute. Moved table to SECURITY_READ_ONLY_LATE in __DATA_CONST, like
 bootstrap_pagetables; added runtime alignment assertion and actual Mach-O symbol
 checks to CI/packer. check_kernel.py rejects the known-bad first kernel.
-Need submit/follow fixed profile CI, verify linked alignment, then temp boot.
+Fixed-profile run 39448117298 at d934baacfc21c7f5585492aab3e63fca81efc521 is
+running: https://github.com/dimasmds/ios-flame/actions/runs/39448117298
+Next: verify successful artifact/alignment, pack, host-check, temporary boot,
+then request a new screen photo. Android is currently ready.
 Added a write-translation preflight for the first/last framebuffer
 addresses, bounded reads of final L1/L2/L3 descriptors through the still-live
 identity mapping, TCR/TTBR1/PAR output, and targeted alias TLB invalidation.
 If translation fails, the working console stays on its original address and
 prints values before waiting for manual restart. Patch applies/reverses cleanly
 against the pinned bootstrap source. Diagnostic build run 39446889472 at commit
-a5b5d635af983f4d2bf91023c31dd99669f1abae is running:
+a5b5d635af983f4d2bf91023c31dd99669f1abae succeeded:
 https://github.com/dimasmds/ios-flame/actions/runs/39446889472
 Earlier run 39446831702 was cancelled after discovering that whitespace cleanup
 had removed required patch context; corrected source patch passed a forward and
-reverse application round trip. Await the current build, pack/verify it, then
-temporarily boot on the now-ready Android device and request the next photo.
+reverse application round trip. The diagnostic-only artifact was downloaded
+for inspection and rejected by check_kernel.py for the same 8K-aligned table;
+it was never booted. Use the fixed-profile run above for the next attempt.
 The owner first
 requested local-only work, then explicitly authorized trying GitHub Actions
 after learning GitHub supplies a Mac runner. Publishing a source-only public

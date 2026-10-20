@@ -313,3 +313,8 @@ the 16 KiB aligned `__DATA_CONST` section. Its physical alignment is asserted
 before installing the descriptor. `flame/check_kernel.py` checks actual linked
 symbols and sections in CI and the payload packer; it correctly rejects the
 first hardware-test kernel. The translation diagnostics are retained.
+
+The diagnostic-only build 39446889472 succeeded; its artifact independently
+has the same misaligned address and was rejected by the new checker. It was
+not booted. The fixed-profile [run 39448117298](https://github.com/dimasmds/ios-flame/actions/runs/39448117298)
+at commit `d934baacfc21c7f5585492aab3e63fca81efc521` is now building.
