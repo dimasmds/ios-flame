@@ -1,5 +1,43 @@
 # iOS 16 on sweet (Redmi Note 10 Pro, SM7150) - working notes
 
+## Pixel 4 local handoff — 2026-10-20 (read before inherited Redmi notes)
+
+Repository `/home/dimasmds/projects/ios-flame`, branch `pixel4-bringup`, based
+on topaz commit `3eacb48`. The current task is an experimental Pixel 4 port,
+not maintenance of the original author's Redmi. See `FLAME.md` for evidence,
+build steps, sources, test outcomes, hashes, and outstanding work.
+
+The connected device was verified over adb as Pixel 4 / flame / SM8150,
+Android 13 TP1A.221005.002.B2, already unlocked. The owner confirmed it is a
+spare with backed-up data. Device-specific serials and dumps are ignored under
+`research/flame-device/`; Google downloads are under ignored
+`research/flame-sources/` and `research/flame-stock/`. Do not copy personal
+identifiers into git. This owner's statement does not transfer any historical
+destructive approvals recorded farther below.
+
+**Milestone achieved:** built a separate bare-metal diagnostic in `flame/`,
+temporarily loaded it with `fastboot boot`, and the owner confirmed the purple
+`PIXEL 4 / FLAME` screen. The 20-second version returned to Android; adb came
+back and the product was verified again before the capture rerun. A 120-second
+version is now booted at the owner's request so they can capture CPU and RAM
+values. Do not claim XNU or iOS has booted. No flashing or erase commands were
+issued. No GitHub fork, push, or CI build was performed.
+
+Checks: `bash flame/build.sh`, `python3 flame/check.py`, ELF relocation
+inspection (none), and `git diff --check`. Build uses cross GCC already installed
+on the host. Two DTBs, mkbootimg, and avbtool are fetched from pinned Google
+commits. The public DTBs match the stock image's DTB section byte-for-byte.
+The successful wrapper required matching more stock Image/LZ4 details; see the
+test matrix in `FLAME.md`. Do not retry earlier rejected wrappers.
+
+**Next action:** collect the owner's capture of TGRAN16 and each RAM BASE / RAM
+SIZE pair, ensure Android returns after the 120-second run, then determine a
+safe XNU RAM region using the complete reserved-memory map. Probe output does
+not yet dump every carve-out, so do not assume a whole RAM bank is free.
+The existing `tools/mkadt.py`, `shim/`, and XNU patch series remain Redmi-specific
+and must not be booted unmodified. Later topaz patches include hardware drivers
+and persistent UFS writes; audit/gate them before attempting Pixel XNU.
+
 ## Agent handoff / active work (2026-10-15, latest)
 
 ### >>> UPDATE 2026-10-18 (read first, then the 10-17 handoff below) <<<

@@ -1,0 +1,129 @@
+/* First Pixel 4 experiment: CPU/FDT inspection, no storage or peripheral drivers. */
+#include <stdint.h>
+#include "fdt.h"
+#include "../shim/font.h"
+
+#define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
+#define WIDTH 1080U
+#define HEIGHT 2280U
+static volatile uint32_t *screen;
+static unsigned row;
+static int use_hvc;
+
+static uint64_t firmware(uint64_t fn)
+{
+    register uint64_t x0 __asm__("x0") = fn;
+    register uint64_t x1 __asm__("x1") = 0;
+    register uint64_t x2 __asm__("x2") = 0;
+    register uint64_t x3 __asm__("x3") = 0;
+    if (use_hvc)
+        __asm__ volatile("hvc #0" : "+r"(x0), "+r"(x1), "+r"(x2), "+r"(x3) : :
+            "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "memory");
+    else
+        __asm__ volatile("smc #0" : "+r"(x0), "+r"(x1), "+r"(x2), "+r"(x3) : :
+            "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "memory");
+    return x0;
+}
+
+static void line(const char *s)
+{
+    if (!screen) return;
+    for (unsigned col = 0; s[col] && col < 42; col++) {
+        unsigned c = (unsigned char)s[col];
+        if (c < 32 || c > 126) c = '?';
+        for (unsigned y = 0; y < 16; y++)
+            for (unsigned x = 0; x < 8; x++)
+                for (unsigned sy = 0; sy < 3; sy++)
+                    for (unsigned sx = 0; sx < 3; sx++) {
+                        unsigned px = 24 + col * 24 + x * 3 + sx;
+                        unsigned py = 24 + row * 48 + y * 3 + sy;
+                        if (py < HEIGHT)
+                            screen[py * WIDTH + px] = (font8x16[c - 32][y] & (0x80 >> x)) ? 0xffffffff : 0xff180820;
+                    }
+    }
+    row++;
+    __asm__ volatile("dsb sy" ::: "memory");
+}
+
+static void hex(const char *label, uint64_t v)
+{
+    char out[43]; unsigned n = 0;
+    while (*label && n < 24) out[n++] = *label++;
+    out[n++] = ' ';
+    for (int i = 15; i >= 0; i--) {
+        unsigned digit = (v >> (i * 4)) & 15;
+        out[n++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
+    }
+    out[n] = 0; line(out);
+}
+
+static void wait_seconds(unsigned seconds)
+{
+    uint64_t freq = READ("cntfrq_el0");
+    uint64_t begin = READ("cntpct_el0");
+    while (READ("cntpct_el0") - begin < freq * seconds) __asm__ volatile("yield");
+}
+
+static void __attribute__((noreturn)) reset(void)
+{
+    firmware(0x84000009); /* PSCI SYSTEM_RESET: normal Android boot, no IMEM writes. */
+    for (;;) __asm__ volatile("wfe");
+}
+
+void __attribute__((noreturn)) probe_exception(void)
+{
+    line("EXCEPTION - RESETTING");
+    if (READ("CurrentEL") == 8) { hex("ESR", READ("esr_el2")); hex("ELR", READ("elr_el2")); }
+    else { hex("ESR", READ("esr_el1")); hex("ELR", READ("elr_el1")); }
+    wait_seconds(5); reset();
+}
+
+static uint64_t cells64(const uint8_t *p) { return (uint64_t)dt_be32(p) << 32 | dt_be32(p + 4); }
+
+void probe_main(uintptr_t fdt_address)
+{
+    struct dt dt; uint32_t n;
+    /* The Linux boot protocol supplies a valid FDT in x0; cap traversal at 2 MiB. */
+    if (!dt_open(&dt, (const void *)fdt_address, 0x200000)) { wait_seconds(5); reset(); }
+    const uint8_t *method = dt_prop(&dt, "/psci", "method", &n);
+    use_hvc = method && n == 4 && method[0] == 'h' && method[1] == 'v' && method[2] == 'c' && method[3] == 0;
+    const uint8_t *ac = dt_prop(&dt, "/reserved-memory", "#address-cells", &n);
+    if (!ac || n != 4 || dt_be32(ac) != 2) { wait_seconds(5); reset(); }
+    const uint8_t *sc = dt_prop(&dt, "/reserved-memory", "#size-cells", &n);
+    if (!sc || n != 4 || dt_be32(sc) != 2) { wait_seconds(5); reset(); }
+    const uint8_t *splash = dt_prop(&dt, "/reserved-memory/cont_splash_region", "reg", &n);
+    /* Only write Google's documented splash reservation, after validating the live tree. */
+    if (!splash || n != 16 || cells64(splash) != 0x9c400000 ||
+        cells64(splash + 8) < WIDTH * HEIGHT * 4 || cells64(splash + 8) > 0x02400000) {
+        wait_seconds(5); reset();
+    }
+    screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
+    for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
+    line("PIXEL 4 / FLAME - PROBE 01");
+    line("CPU + BOOT DEVICE TREE ONLY");
+    hex("EL", READ("CurrentEL") >> 2);
+    hex("MIDR", READ("midr_el1"));
+    hex("MPIDR", READ("mpidr_el1"));
+    uint64_t mmfr0 = READ("id_aa64mmfr0_el1");
+    hex("MMFR0", mmfr0);
+    hex("TGRAN16", (mmfr0 >> 20) & 15);
+    hex("MMFR1", READ("id_aa64mmfr1_el1"));
+    hex("ISAR0", READ("id_aa64isar0_el1"));
+    hex("ISAR1", READ("id_aa64isar1_el1"));
+    hex("CNTFRQ", READ("cntfrq_el0"));
+    hex("PSCI", firmware(0x84000000));
+    hex("FDT", fdt_address);
+    hex("FDT SIZE", dt.size);
+    hex("SPLASH", cells64(splash));
+    hex("SPLASH SIZE", cells64(splash + 8));
+    const uint8_t *memory = dt_prop(&dt, "/memory", "reg", &n);
+    if (memory && n % 16 == 0)
+        for (uint32_t i = 0; i < n && i < 4 * 16; i += 16) {
+            hex("RAM BASE", cells64(memory + i));
+            hex("RAM SIZE", cells64(memory + i + 8));
+        }
+    line("NO PARTITIONS WRITTEN");
+    line("ANDROID RESTART IN 120 SECONDS");
+    /* Command-mode display may need a later DPU kickoff driver to show these writes. */
+    wait_seconds(120); reset();
+}

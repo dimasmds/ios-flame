@@ -1,0 +1,102 @@
+# Pixel 4 (flame) bring-up
+
+This branch starts a new SM8150 port. **iOS and XNU do not boot on the Pixel yet.**
+The inherited README describes the Redmi devices, not Pixel support.
+
+## Observed device
+
+- Pixel 4, `flame`, SM8150 (`msmnile`), 1080 × 2280 display.
+- Android 13, `TP1A.221005.002.B2`; bootloader already unlocked.
+- Installed kernel: 4.14.276, `6ef255005cea`; Google's Android 13 coral
+  source branch resolves to `6ef255005ceaae118d35fba8585de7ba1d4d5efb`.
+- The adb shell is unprivileged. Live DT properties, physical memory ranges,
+  and boot partitions cannot be read through it. Device-specific observations
+  live under ignored `research/flame-device/`.
+- The owner confirmed this is a spare device with backed-up data. This is
+  not permission to reuse the Redmi author's historical destructive approvals.
+
+## First milestone
+
+`flame/` contains a separate bare-metal arm64 diagnostic, with no XNU,
+UFS driver, Android mounts, or persistent log writes. It inspects the CPU
+registers and bootloader FDT, validates the live splash reservation against
+Google's source, then attempts to display diagnostics in that RAM reservation.
+It requests a normal PSCI reset after 120 seconds (the first successful test
+used 20 seconds). It does not write the
+Redmi's restart register or initialize its interrupt controller.
+
+The Pixel panel uses command mode. Writing splash RAM alone may not update
+the screen; a DPU refresh implementation may be needed. A bootloader `OKAY`
+does not prove that probe code executed. A normal reset alone also does not
+prove that a particular probe stage succeeded.
+
+Build and check, from the repository root:
+
+```sh
+python3 flame/fetch.py
+bash flame/build.sh
+python3 flame/check.py
+```
+
+The fetcher uses pinned Google revisions and stores sources plus checksums
+under ignored `research/flame-sources/`. Requirements: Python 3, GCC for
+`aarch64-linux-gnu`, host GCC, binutils, bash, ripgrep, and system `liblz4`.
+
+Tests cover nested DT properties, malformed lengths, truncated blobs,
+unterminated names, traversal limits, both public SM8150 DTBs, LZ4 round trips,
+boot-image section sizes and offsets, and verification of the AVB hash descriptor.
+
+## Hardware test results (2026-10-20)
+
+1. Raw arm64 Image with a single DTB, no AVB footer: bootloader rejected it
+   with `Unsupported`; diagnostic code did not run.
+2. Raw Image with both DTBs and AVB footer: same rejection.
+3. Exact stock `TP1A.221005.002.B2` boot image, loaded with `fastboot boot`:
+   accepted and returned to Android. This confirms the temporary boot path works.
+4. LZ4 Image, default frame settings, zero arm64 text offset: rejected with
+   `Invalid Parameter`.
+5. LZ4 with a content checksum and stock arm64 text offset `0x80000`:
+   bootloader accepted it. **The owner observed the purple `PIXEL 4 / FLAME`
+   diagnostic screen.** Android subsequently returned and adb was available.
+   The individual effects of checksum and text offset were not isolated.
+6. Rebuilt with a 120-second capture window and booted again at the owner's
+   request. Hardware values from the screen are pending capture.
+
+The accepted 20-second image SHA-256 is
+`6ebecb4bec5290f2fd012cb6cebe22801b00ca1e7dcc593f4aa33b8e27007ff3`.
+The 120-second image SHA-256 is
+`1fe26bae97e7c7492cbe893c1e23f0dd4b7ff177ce83cc9d73f8f76098d759aa`.
+Raw host/device transcripts remain in ignored `research/flame-device/`.
+There were no flash, erase, bootloader unlock, slot switch, or filesystem
+installation commands.
+
+The wrapper uses Pixel boot v2, **LZ4 with a content checksum**, both Google's
+`sm8150-v2.dtb` and `sm8150.dtb`, and an unsigned AVB hash footer in a 64 MiB
+boot image. The concatenated public DTBs were byte-for-byte identical to
+those in the stock boot image. No Apple firmware has been downloaded.
+
+## Hardware differences to port
+
+| Item | Pixel 4 evidence | Remaining work |
+| --- | --- | --- |
+| Boot wrapper | v2, 4096-byte pages, LZ4 + checksum, DTBs, AVB footer; hardware probe accepted | Adapt for an XNU payload after validating RAM |
+| CPU affinity | DT nodes and Google source: `0x000`, `0x100`, … `0x700` | Measure 16K support and select the first XNU core; do not reuse topaz's Gold handoff |
+| GIC | Google source: distributor `0x17a00000`, redistributors `0x17a60000` | Validate live FDT; port interrupt and SMP initialization |
+| Timer | Google source: 19.2 MHz, virtual timer PPI 3 → INTID 19 | Test timer interrupts |
+| UFS | Running Android platform device `1d84000.ufshc` | Validate register layout, DMA, IOMMU/firmware state; disable all writes initially |
+| Splash | Source reservation `0x9c400000` / `0x02400000`; owner saw diagnostics | Capture the live values; characterize refresh for continuous UI |
+| RAM | 6 GB model; Linux reports about 5.3 GiB usable | Extract actual banks and all carve-outs; no guessed high-memory range |
+| Touch/buttons | Not investigated yet | Identify actual controller and PMIC routing, then port HID |
+
+Source locations at the installed kernel revision:
+
+- [SM8150 CPU, GIC, timer, and reset description](https://android.googlesource.com/kernel/msm/+/6ef255005ceaae118d35fba8585de7ba1d4d5efb/arch/arm64/boot/dts/qcom/sm8150.dtsi)
+- [Pixel memory reservations](https://android.googlesource.com/kernel/msm/+/6ef255005ceaae118d35fba8585de7ba1d4d5efb/arch/arm64/boot/dts/google/sm8150-floral-memory.dtsi)
+- [Pixel command-mode display](https://android.googlesource.com/kernel/msm/+/6ef255005ceaae118d35fba8585de7ba1d4d5efb/arch/arm64/boot/dts/google/sm8150-floral-display.dtsi)
+- [Google boot-image configuration](https://android.googlesource.com/device/google/coral/+/0da6be0c90255271297e19eee1bf6cbd3467406a/BoardConfig-common.mk)
+
+Once the probe has usable output, the next milestones are a validated RAM
+map and framebuffer, early XNU console, timer/interrupt support, storage reads,
+and finally an iOS filesystem and userland. The inherited kernel patches
+contain hard-coded Redmi addresses, including persistent writes to userdata;
+they must be audited before running XNU on this phone.

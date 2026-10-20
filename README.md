@@ -1,5 +1,10 @@
 # ios-topaz
 
+**Local Pixel 4 experiment:** this branch contains initial `flame` diagnostic
+work only. Pixel iOS/XNU boot is not implemented. See [FLAME.md](FLAME.md)
+for hardware evidence and current status. The Redmi instructions below do
+not apply to a Pixel.
+
 **Apple's iOS 16 running on a Redmi Note 12 4G.**
 
 This is a port of [dipa-studio/ios-sweet](https://github.com/dipa-studio/ios-sweet) (Apple's open-source XNU kernel, xnu-8796, on a Redmi Note 10 Pro) to the Xiaomi **Redmi Note 12 4G** (`topaz` / `tapas`, Qualcomm **SM6225 "khaje"** / Snapdragon 685). On top of it runs the **unmodified iOS 16.7.16 (20H392) userland of the iPhone X**: launchd, the system daemons, backboardd and SpringBoard.
