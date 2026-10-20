@@ -1,6 +1,7 @@
 # Pixel 4 (flame) bring-up
 
-This branch starts a new SM8150 port. **iOS and XNU do not boot on the Pixel yet.**
+This branch starts a new SM8150 port. **XNU reaches early VM initialization on
+the Pixel; iOS userland has not booted.**
 The inherited README describes the Redmi devices, not Pixel support.
 
 ## Observed device
@@ -273,6 +274,23 @@ boot arguments `0x102060000`, top of kernel data `0x102064000`.
 The first real test-05 image SHA-256 is
 `bcece2ab63018661d4f648102e2305f7542d11c9d87ab41bb9debd7d0fe4dca0`.
 The verified Pixel accepted this image through temporary `fastboot boot`:
-sending 64 MiB OKAY (1.619 s), booting OKAY (4.060 s). The owner's screen
-photo and subsequent Android return check are pending. Bootloader acceptance
-does not establish that XNU executed. No flash or erase command was issued.
+sending 64 MiB OKAY (1.619 s), booting OKAY (4.060 s). No flash or erase command
+was issued.
+
+The owner's `flame-ios-5.jpeg` photo confirms XNU execution: stages 1–8 are
+visible, including MMU-on `arm_init`, platform initialization, CPU topology,
+CPU bootstrap, kernel startup bootstrap, CPU initialization, and entry into
+`arm_vm_init`. The last visible line is `SWEET EARLY 8: leaving bootstrap TTBR0`.
+The owner reports the screen stayed there. In source, the next operation switches
+the early console pointer to its final kernel VA and tries to draw stage 9.
+This localizes the next investigation to the final framebuffer alias; it does
+not establish the exact fault or exclude a display-only failure. iOS userland
+has not run. Android subsequently returned; adb verified `boot_completed=1` and
+`ro.product.device=flame`. Its boot reason is `bootloader` after manual restart.
+
+The next kernel profile adds first/last framebuffer write-translation checks,
+TCR/TTBR1/PAR output, and bounded L1/L2/L3 table inspection through the outgoing
+identity map. It invalidates the newly installed alias's cached translations.
+If translation fails or targets the wrong physical address, the console remains
+on its working identity address and waits for manual restart. This is a
+diagnostic build; the exact cause of the stage-8 stop is still unconfirmed.

@@ -22,7 +22,8 @@ temporarily loaded it with `fastboot boot`, and the owner confirmed the purple
 back and the product was verified again before the capture rerun. The owner
 supplied the 120-second probe photo and confirmed Android returned to its home
 screen. adb confirmed boot_completed=1. Android reports sys.boot.reason=watchdog;
-the reset cause is unresolved. Do not claim XNU or iOS has booted. No flashing or erase commands were
+the reset cause is unresolved. Test 05 now confirms early XNU execution (below);
+iOS userland has not booted. No flashing or erase commands were
 issued. GitHub publication/build authorization and the current run are recorded
 below.
 
@@ -58,8 +59,14 @@ SCTLR restored 0xc00808, MMU DISABLED AGAIN. Only these two pages were tested.
 adb independently confirms Android returned with boot_completed=1 and boot
 reason watchdog. No partition writes. Image hash and details in FLAME.md.
 
-**Next action:** finish the early-console kernel build and prepare a bounded
-Pixel payload loader. The owner first
+**Next action:** diagnose the final framebuffer virtual mapping after XNU
+stage 8. Added a write-translation preflight for the first/last framebuffer
+addresses, bounded reads of final L1/L2/L3 descriptors through the still-live
+identity mapping, TCR/TTBR1/PAR output, and targeted alias TLB invalidation.
+If translation fails, the working console stays on its original address and
+prints values before waiting for manual restart. Patch applies/reverses cleanly
+against the pinned bootstrap source. Submit the updated profile to CI.
+The owner first
 requested local-only work, then explicitly authorized trying GitHub Actions
 after learning GitHub supplies a Mac runner. Publishing a source-only public
 fork/Pixel branch and running the prepared macOS workflow are authorized.
@@ -86,8 +93,12 @@ storage-free early payload. The artifact in research/flame-kernel/39444210854
 passed those checks; real test-05 packaging/ADT checks pass. Entry PA 0x101484488,
 boot args 0x102060000. Image hash/details in FLAME.md. Next is a temporary
 hardware observation: test 05 was temporarily loaded; fastboot sending OKAY
-1.619s and booting OKAY 4.060s. Await the owner's screen/photo, then verify
-Android return. Kernel execution is not yet confirmed. Bootloader transcript
+1.619s and booting OKAY 4.060s. Owner photo flame-ios-5.jpeg confirms XNU stages
+1–8, last line 'leaving bootstrap TTBR0'; no stage 9 visible and screen remained
+there. This proves XNU execution through early VM initialization, not iOS
+userland. Source's next step switches the console to the final framebuffer VA.
+Exact failure not established. Owner manually restarted; adb now verifies
+flame, boot_completed=1, boot reason bootloader. Bootloader transcript
 is research/flame-device/probe-05-fastboot.txt. No flash or erase commands.
 The synthetic fixture image was
 renamed flame/out/host-validation-05.img; never boot it.
@@ -96,7 +107,7 @@ Read-only kernel audit: existing upstream buildtree run 39419628786, commit
 2665612a9eabb76b294cbc1b014132c6b89d09db, is extracted under ignored
 research/upstream-2665612/. It is later than this branch's base. Identified
 hard-coded early framebuffer/display-height and boot-affinity assumptions;
-details in FLAME.md. The separate Pixel build above is now running.
+details in FLAME.md. The separate Pixel build above succeeded.
 The existing `tools/mkadt.py`, `shim/`, and XNU patch series remain Redmi-specific
 and must not be booted unmodified. Later topaz patches include hardware drivers
 and persistent UFS writes; audit/gate them before attempting Pixel XNU.

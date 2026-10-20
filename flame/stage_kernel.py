@@ -25,6 +25,8 @@ def verify(source):
     early = (source / "osfmk/arm64/sweet_early.c").read_text()
     if "(uintptr_t)0x9c400000" not in early:
         raise SystemExit("Early console is not aimed at the measured Pixel framebuffer")
+    if "FLAME FINAL FB TRANSLATION FAILED" not in early or "at s1e1w" not in early:
+        raise SystemExit("Final framebuffer translation preflight diagnostics missing")
     print("Pixel source profile verified; storage driver excluded")
 
 
