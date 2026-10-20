@@ -65,10 +65,17 @@ stage 8. Found concrete linked-image defect: flame_fb_l3 VA fffffe0007c12000
 16K attribute. Moved table to SECURITY_READ_ONLY_LATE in __DATA_CONST, like
 bootstrap_pagetables; added runtime alignment assertion and actual Mach-O symbol
 checks to CI/packer. check_kernel.py rejects the known-bad first kernel.
-Fixed-profile run 39448117298 at d934baacfc21c7f5585492aab3e63fca81efc521 is
-running: https://github.com/dimasmds/ios-flame/actions/runs/39448117298
-Next: verify successful artifact/alignment, pack, host-check, temporary boot,
-then request a new screen photo. Android is currently ready.
+Fixed-profile run 39448117298 at d934baacfc21c7f5585492aab3e63fca81efc521
+succeeded: https://github.com/dimasmds/ios-flame/actions/runs/39448117298
+Actual linked flame_fb_l3 is now fffffe00071f8000 (PA 1011f8000), 16K aligned
+in __DATA_CONST. Artifact source profile/SHA, linked-symbol checks, packing,
+and all host image checks passed. Test 05b was temporarily loaded: sending
+OKAY 1.619s, booting OKAY 4.062s. Full image/kernel hashes in FLAME.md.
+**Now awaiting owner's screen/photo**, then verify Android return; do not
+claim stage 9 or a hardware fix until observed. New screen has FLAME table/PAR
+diagnostics. Original and corrected images preserved as
+flame/out/flame-xnu-39444210854.img and flame-xnu-39448117298.img.
+Transcript research/flame-device/probe-05b-fastboot.txt. No flash/erase commands.
 Added a write-translation preflight for the first/last framebuffer
 addresses, bounded reads of final L1/L2/L3 descriptors through the still-live
 identity mapping, TCR/TTBR1/PAR output, and targeted alias TLB invalidation.

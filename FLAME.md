@@ -317,4 +317,20 @@ first hardware-test kernel. The translation diagnostics are retained.
 The diagnostic-only build 39446889472 succeeded; its artifact independently
 has the same misaligned address and was rejected by the new checker. It was
 not booted. The fixed-profile [run 39448117298](https://github.com/dimasmds/ios-flame/actions/runs/39448117298)
-at commit `d934baacfc21c7f5585492aab3e63fca81efc521` is now building.
+at commit `d934baacfc21c7f5585492aab3e63fca81efc521` **succeeded**, including
+the linked-table check. The new `_flame_fb_l3` is at VA `0xfffffe00071f8000`
+(PA `0x1011f8000`), correctly 16 KiB aligned in `__DATA_CONST`.
+
+Test 05b uses this kernel. Artifact profile/checksum, linked alignment, payload
+validation, and complete host boot-image checks passed. Kernel SHA-256:
+`3237cef33de90789bcf2ff2e7e125977265b706c77a0eacfd1ee43c6c561cecb`.
+Boot image SHA-256:
+`f03bb748ce52fcf7091e47eca217b2e8a91a625d17657730fa445e95c47b6ac4`.
+Loader entry PA `0x10148d488`, boot arguments `0x102064000`.
+
+The same verified Pixel accepted a temporary test-05b boot: sending OKAY
+(1.619 s), booting OKAY (4.062 s). Screen evidence and Android return are
+pending. No flash/erase command was issued. The screen still says test 05;
+the new `FLAME` diagnostic lines distinguish this kernel. Preserved images:
+`flame/out/flame-xnu-39444210854.img` (first stage-8 test) and
+`flame/out/flame-xnu-39448117298.img` (alignment fix); both are ignored.
