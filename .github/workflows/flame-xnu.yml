@@ -1,0 +1,55 @@
+name: flame-xnu-early-console
+
+# Explicit dispatch only: publishing this branch does not start a build.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      MACOS_VERSION: '13.5'
+      KERNEL_CONFIG: DEVELOPMENT
+      MACHINE_CONFIG: SWEET
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned kernel builder and stage Pixel profile
+        run: |
+          git init -q dxb
+          git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
+          git -C dxb checkout -q FETCH_HEAD
+          python3 flame/stage_kernel.py stage dxb
+          git init -q dxb/xnu
+          git -C dxb/xnu fetch -q --depth 1 https://github.com/apple-oss-distributions/xnu 1b191cb58250d0705d8a51287127505aa4bc0789
+          git -C dxb/xnu checkout -q FETCH_HEAD
+      - name: Select Xcode 15 and install dependencies
+        run: |
+          brew install jq gum bash cmake ninja
+          printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
+          sudo chmod +x /usr/local/bin/xcodes
+          XC=$(ls -d /Applications/Xcode_15*.app | sort -V | head -1)
+          test -n "$XC"
+          echo "DEVELOPER_DIR=$XC/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - name: Build kernel
+        working-directory: dxb
+        run: bash build.sh
+      - name: Verify source profile and collect artifacts
+        run: |
+          python3 flame/stage_kernel.py verify dxb/xnu
+          mkdir -p flame-kernel
+          cp dxb/fakeroot/System/Library/Kernels/kernel.development.sweet flame-kernel/
+          cp dxb/flame-patches.json flame-kernel/
+          git rev-parse HEAD > flame-kernel/port-commit.txt
+          git -C dxb/xnu rev-parse HEAD > flame-kernel/xnu-commit.txt
+          shasum -a 256 flame-kernel/kernel.development.sweet > flame-kernel/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flame-xnu-early-console
+          path: flame-kernel/
+          retention-days: 7

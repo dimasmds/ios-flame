@@ -157,8 +157,10 @@ candidate pages are not accessed. An exception or reset may interrupt
 restoration; only a completed test reports its restore verification.
 
 Host tests passed for restoration, untouched middle pages, alignment, range
-size, and overflow rejection. The bootloader accepted probe 03; hardware
-results await the owner's photo. No storage driver is present.
+size, and overflow rejection. The owner's photo confirms SCTLR `0xc00808`,
+8,192 word comparisons, zero pattern errors, zero restore errors, and
+`TWO PAGE RAM TEST PASSED`. Android returned; adb reported boot_completed=1.
+This verifies only the two tested pages. No storage driver is present.
 Image SHA-256:
 `232f10ef3b68dc426c7653c37e67682304d088cb55dbfa90c18dde257e30a78c`.
 
@@ -174,3 +176,27 @@ Confirmed obstacles include a hard-coded early framebuffer in `start.s` and
 `sweet_early.c`, a 2400-line display assumption, and a boot-CPU affinity check
 requiring `0x100`. The UFS initialization can also start Redmi input drivers
 and persistent logging. None of that kernel code has been run on the Pixel.
+
+## Pixel early-console kernel build
+
+The owner approved creating the public fork and running GitHub Actions after
+clarifying that GitHub supplies the Mac runner. Earlier preference for local
+work was superseded for this build; device dumps and firmware remain local.
+
+`.github/workflows/flame-xnu.yml` is manual-dispatch only. It pins the existing
+kernel builder and XNU `xnu-8796.141.3` commit
+`1b191cb58250d0705d8a51287127505aa4bc0789`, selects bootstrap patches 0001–0018,
+and adds `flame/patches/0099-flame-early-console.patch`. Later Redmi drivers are
+excluded. `flame/stage_kernel.py` checks the selected source profile.
+
+The Pixel patch selects Cortex-A55 code generation, Pixel platform/CPU matching,
+the measured framebuffer base and height, and precise 16K framebuffer-page
+mappings in both the bootstrap and final kernel tables. It avoids mapping the
+surrounding 32 MiB firmware-containing block as normal memory.
+
+Local validation: all 18 bootstrap patches plus the Pixel patch applied to the
+pinned clean Apple source; source-profile checks passed; workflow YAML and build
+script syntax passed. The generated early ADT has one CPU at affinity zero,
+the candidate 1 GiB RAM range, Pixel GIC addresses from Google source, and no
+storage/input nodes. The kernel has not yet been compiled or booted. A separate
+16K translation test remains necessary before a kernel hardware attempt.

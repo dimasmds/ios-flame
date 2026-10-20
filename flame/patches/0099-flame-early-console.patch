@@ -1,0 +1,172 @@
+diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
+--- a/makedefs/MakeInc.def
++++ b/makedefs/MakeInc.def
+@@ -61,7 +61,7 @@
+ MACHINE_FLAGS_ARM64_T6000 = -DARM64_BOARD_CONFIG_T6000 		-mcpu=apple-a14
+ MACHINE_FLAGS_ARM64_VMAPPLE = -DARM64_BOARD_CONFIG_VMAPPLE              -march=armv8.5a
+ MACHINE_FLAGS_ARM64_BCM2837 = -DARM64_BOARD_CONFIG_BCM2837
+-MACHINE_FLAGS_ARM64_SWEET = -DARM64_BOARD_CONFIG_SWEET                -march=armv8.2-a+crypto
++MACHINE_FLAGS_ARM64_SWEET = -DARM64_BOARD_CONFIG_SWEET                -mcpu=cortex-a55
+ 
+ 
+ #
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -465,7 +465,7 @@
+ 
+ #if defined(SWEET)
+ 	/* Stage 0: white 64x32 band, no stack or page tables needed. */
+-	MOV64	x0, (0x9c000000 + 2368 * 4320)
++	MOV64	x0, (0x9c400000 + 2248 * 4320)
+ 	mov		w1, #-1
+ 	mov		x2, #32
+ 	mov		x4, #4320
+@@ -629,20 +629,34 @@
+ 	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
+ 
+ #if defined(SWEET)
+-	/*
+-	 * Splash framebuffer: one 32MB Normal-NC block in the EXISTING V=P
+-	 * L2 table. Both framebuffer and RAM use L1 index 0; another call to
+-	 * create_bootstrap_mapping would replace the RAM L2 table.
+-	 * SWEET uses 16K pages and all bring-up RAM is below 4GB, so the first
+-	 * V=P L2 page is bootstrap_pagetables + 2*PGBYTES.
+-	 */
+-	MOV64	x10, 0x9c000000
+-	MOV64	x11, (ARM_TTE_TYPE_BLOCK | ARM_TTE_VALID | ARM_TTE_BLOCK_SH(SH_OUTER_MEMORY) | ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) | ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX)
+-	orr		x11, x11, x10
+-	and		x12, x10, #(ARM_TT_L2_INDEX_MASK)
+-	lsr		x12, x12, #(ARM_TT_L2_SHIFT)
+-	add		x13, x25, #(2 * PGBYTES)
+-	str		x11, [x13, x12, lsl #TTE_SHIFT]
++	/* Pixel 4: map only the 16K pages used by the splash viewport. The
++	 * 32MB block also contains firmware memory, so do not map it wholesale.
++	 * With this single-CPU/1GiB profile, V=P uses the first L2 table. */
++	add	x2, x2, #PGBYTES
++	mov	x9, #(PGBYTES / 8)
++	mov	x13, x2
++Lsflame_zero_fb_l3:
++	str	xzr, [x13], #8
++	subs	x9, x9, #1
++	b.ne	Lsflame_zero_fb_l3
++	MOV64	x10, 0x9c400000
++	and	x12, x10, #(ARM_TT_L2_INDEX_MASK)
++	lsr	x12, x12, #(ARM_TT_L2_SHIFT)
++	MOV64	x11, (ARM_TTE_TYPE_TABLE | ARM_TTE_VALID)
++	orr	x11, x11, x2
++	add	x13, x25, #(2 * PGBYTES)
++	str	x11, [x13, x12, lsl #TTE_SHIFT]
++	and	x12, x10, #(ARM_TT_L2_SIZE - 1)
++	lsr	x12, x12, #ARM_PGSHIFT
++	mov	x9, #((1080 * 2280 * 4 + PGBYTES - 1) / PGBYTES)
++	MOV64	x11, (ARM_PTE_TYPE | ARM_PTE_SH(SH_OUTER_MEMORY) | ARM_PTE_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) | ARM_PTE_AF | ARM_PTE_PNX | ARM_PTE_NX)
++Lsflame_map_fb_page:
++	orr	x13, x10, x11
++	str	x13, [x2, x12, lsl #TTE_SHIFT]
++	add	x10, x10, #PGBYTES
++	add	x12, x12, #1
++	subs	x9, x9, #1
++	b.ne	Lsflame_map_fb_page
+ #endif
+ 
+ 	/* Ensure TTEs are visible */
+diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
+--- a/osfmk/arm64/sweet_early.c
++++ b/osfmk/arm64/sweet_early.c
+@@ -11,10 +11,10 @@
+ #include <stdint.h>
+ #include <kern/misc_protos.h>
+ 
+-static volatile uint32_t *early_fb = (volatile uint32_t *)(uintptr_t)0x9c000000;
++static volatile uint32_t *early_fb = (volatile uint32_t *)(uintptr_t)0x9c400000;
+ #define EARLY_FB early_fb
+ #define EARLY_WIDTH 1080u
+-#define EARLY_HEIGHT 2400u
++#define EARLY_HEIGHT 2280u
+ #define EARLY_STRIDE (4320u / 4)
+ #define EARLY_SCALE 2u
+ #define EARLY_CELL_W (8u * EARLY_SCALE)
+diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -1832,6 +1832,7 @@
+  * for a Normal-NC framebuffer alias that survives bootstrap TTBR0 teardown.
+  */
+ #define SWEET_EARLY_FB_VA (VM_MIN_KERNEL_ADDRESS + ARM_TT_L2_SIZE)
++static tt_entry_t flame_fb_l3[PGBYTES / sizeof(tt_entry_t)] __attribute__((aligned(ARM_PGBYTES)));
+ 
+ static void
+ sweet_early_map_final(void)
+@@ -1843,10 +1844,15 @@
+ 	tt_entry_t *l2 = (tt_entry_t *)phystokv(l1 & ARM_TTE_TABLE_MASK);
+ 	tt_entry_t *slot = &l2[(va & ARM_TT_L2_INDEX_MASK) >> ARM_TT_L2_SHIFT];
+ 	assert(*slot == ARM_TTE_EMPTY);
+-	*slot = 0x9c000000ULL | ARM_TTE_VALID | ARM_TTE_TYPE_BLOCK |
+-	    ARM_TTE_BLOCK_SH(SH_OUTER_MEMORY) |
+-	    ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) |
+-	    ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX;
++	/* Preserve the exact viewport mapping when switching to TTBR1. */
++	const unsigned int pages = (1080 * 2280 * 4 + PGBYTES - 1) / PGBYTES;
++	for (unsigned int i = 0; i < pages; i++) {
++		flame_fb_l3[i] = (0x9c400000ULL + (uint64_t)i * PGBYTES) |
++		    ARM_PTE_TYPE | ARM_PTE_SH(SH_OUTER_MEMORY) |
++		    ARM_PTE_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) |
++		    ARM_PTE_AF | ARM_PTE_PNX | ARM_PTE_NX;
++	}
++	*slot = kvtophys((vm_offset_t)flame_fb_l3) | ARM_TTE_VALID | ARM_TTE_TYPE_TABLE;
+ 	__asm__ volatile("dsb ishst" ::: "memory");
+ }
+ #endif
+diff --git a/iokit/KernelConfigTables.cpp b/iokit/KernelConfigTables.cpp
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -38,13 +38,13 @@
+     "   {"
+     "     'IOClass'         = SweetPlatformExpert;"
+     "     'IOProviderClass' = IOPlatformExpertDevice;"
+-    "     'IONameMatch'     = 'xiaomi,sweet';"
++    "     'IONameMatch'     = 'google,flame';"
+     "     'IOProbeScore'    = 10000:32;"
+     "   },"
+     "   {"
+     "     'IOClass'         = SweetCPU;"
+     "     'IOProviderClass' = IOPlatformDevice;"
+-    "     'IONameMatch'     = 'qcom,kryo470';"
++    "     'IONameMatch'     = 'qcom,kryo485';"
+     "     'IOProbeScore'    = 10000:32;"
+     "   },"
+ #endif
+diff --git a/iokit/Kernel/arm/SweetPlatformExpert.cpp b/iokit/Kernel/arm/SweetPlatformExpert.cpp
+--- a/iokit/Kernel/arm/SweetPlatformExpert.cpp
++++ b/iokit/Kernel/arm/SweetPlatformExpert.cpp
+@@ -70,7 +70,7 @@
+ 	if (name == NULL || maxLength <= 0) {
+ 		return false;
+ 	}
+-	strlcpy(name, "sweet", (size_t)maxLength);
++	strlcpy(name, "flame", (size_t)maxLength);
+ 	return true;
+ }
+ 
+@@ -80,7 +80,7 @@
+ 	if (name == NULL || maxLength <= 0) {
+ 		return false;
+ 	}
+-	strlcpy(name, "Redmi Note 10 Pro", (size_t)maxLength);
++	strlcpy(name, "Google Pixel 4", (size_t)maxLength);
+ 	return true;
+ }
+ #endif /* SWEET */
+diff --git a/iokit/Kernel/arm/SweetCPU.cpp b/iokit/Kernel/arm/SweetCPU.cpp
+--- a/iokit/Kernel/arm/SweetCPU.cpp
++++ b/iokit/Kernel/arm/SweetCPU.cpp
+@@ -52,7 +52,7 @@
+ 	if (!IOCPU::start(provider)) {
+ 		return false;
+ 	}
+-	cpuName = OSSymbol::withCStringNoCopy("Kryo 470");
++	cpuName = OSSymbol::withCStringNoCopy("Kryo 485");
+ 	if (cpuName == NULL) {
+ 		return false;
+ 	}

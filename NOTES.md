@@ -43,14 +43,28 @@ RESERVE ENTRIES=0, DYNAMIC POOLS=8, UNBOUNDED POOLS=0, CONFLICTS=0, MAP ERRORS=0
 Android returned, verified via adb boot_completed=1. Candidate is
 [0x100000000, 0x140000000). This clears only the checked DT metadata.
 
-**Next action:** RAM probe 03 is now booted; the owner was asked for a whole
-screen photo, especially PATTERN ERRORS, RESTORE ERRORS, and final result.
-It repeats the map check, requires SCTLR.M/C off, saves/tests/restores just the
-first and last 16 KiB pages of the candidate (0x100000000 and 0x13fffc000).
-Do not claim all 1 GiB was tested. Host tests verified restoration and untouched
-middle pages, invalid argument rejection, plus the existing map/image checks.
-Build SHA-256 and detailed limitations are in `FLAME.md`. Confirm Android
-returns after this test. No storage code has been added.
+**RAM milestone:** probe 03 implementation is commit `b2afa91`. The owner's
+photo confirms SCTLR=0xc00808, WORDS COMPARED=0x2000, PATTERN ERRORS=0,
+RESTORE ERRORS=0, TWO PAGE RAM TEST PASSED. Only the first and last 16 KiB
+pages (0x100000000, 0x13fffc000) were tested/restored, not all 1 GiB. Android
+returned, verified through adb boot_completed=1. Android still reports
+watchdog as the boot reason. No storage code has been added.
+
+**Next action:** build the prepared early-console kernel. The owner first
+requested local-only work, then explicitly authorized trying GitHub Actions
+after learning GitHub supplies a Mac runner. Publishing a source-only public
+fork/Pixel branch and running the prepared macOS workflow are authorized.
+No device dumps or downloaded firmware may be uploaded. The workflow and
+profile are prepared and locally validated; run URL/commit must be recorded
+once started. No Pixel kernel has compiled or booted yet.
+
+Kernel profile: .github/workflows/flame-xnu.yml pins XNU 8796.141.3,
+selects inherited 0001–0018 only, plus flame/patches/0099-flame-early-console.patch.
+This excludes the Redmi storage/input/network drivers. Pixel framebuffer
+viewport gets exact 16K page mappings at bootstrap and final VA; Cortex-A55
+flags and Pixel IONameMatch values are selected. flame/mkadt.py emits a
+one-CPU early ADT with no storage. A 16K MMU translation probe must still be
+prepared/tested before attempting the kernel on hardware.
 
 Read-only kernel audit: existing upstream buildtree run 39419628786, commit
 2665612a9eabb76b294cbc1b014132c6b89d09db, is extracted under ignored
