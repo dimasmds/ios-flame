@@ -15,10 +15,21 @@ were absent. Printed values match stale GPRs (PTE, range-check constant, L2
 descriptor). The source now uses newline separators and a noinline translation
 helper. check_kernel.py now checks actual AT/ISB/MRS and both TLBI instructions;
 it rejects the broken 05b artifact. Corrected build run 39451069381 at
-12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7 is compiling:
+12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7 succeeded:
 https://github.com/dimasmds/ios-flame/actions/runs/39451069381
-Next: download/verify artifact, run it through flame/qemu.py, fix any emulator
-failures that can be resolved offline, prepare a checked phone image for later.
+QEMU test research/flame-qemu/fixed-39451069381 proves the framebuffer handoff
+completed (kva_active=1, translation_check_failed=false), VM bootstrap finished,
+platform expert registered, and CPU SGI1 self-test passed. It then panics at
+pthread_shims.c:318 because the first profile excludes the pthread provider.
+This is simulation evidence, not a new Pixel test. Kernel/image hashes below
+in FLAME.md; checked image preserved flame/out/flame-xnu-39451069381.img.
+
+Next profile now selects 0001–0020 plus 0023 and 0027, the single Pixel0099 patch,
+and pinned staging helpers0019/0020: 23 patches + two scripts. Newly selected
+code is generic pthread, portable AES, SHA256 and MD5; no storage, filesystem,
+AMFI replacement or later peripheral drivers. Both stage_kernel and packer share
+the explicit manifest selection. All four extra patches apply cleanly; staged
+profile/script syntax checks passed. Submit new profile CI, then rerun QEMU.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with

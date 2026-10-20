@@ -14,6 +14,7 @@ import adt
 import mkpayload
 from embed import validate
 from check_kernel import check_kernel
+from stage_kernel import selected_inputs
 
 XNU_COMMIT = '1b191cb58250d0705d8a51287127505aa4bc0789'
 
@@ -25,10 +26,7 @@ def main():
     source = args.artifact.resolve()
     if (source / 'xnu-commit.txt').read_text().strip() != XNU_COMMIT:
         raise ValueError('Unexpected XNU source commit')
-    expected = sorted(p for p in (ROOT.parent / 'xnu/patches').glob('*.patch')
-                      if int(p.name.split('-')[0]) <= 18)
-    expected += sorted((ROOT / 'patches').glob('*.patch'))
-    assert len(expected) == 19
+    expected = selected_inputs()
     manifest = [{'name': p.name, 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in expected]
     if json.loads((source / 'flame-patches.json').read_text()) != manifest:
         raise ValueError('Artifact does not match the current storage-free Pixel patch profile')

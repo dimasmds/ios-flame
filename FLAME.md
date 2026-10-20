@@ -372,7 +372,7 @@ cannot hide whether the final page-table handoff completed.
 
 Corrected assembly build:
 [run 39451069381](https://github.com/dimasmds/ios-flame/actions/runs/39451069381),
-commit `12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7`, currently compiling.
+commit `12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7`, succeeded.
 
 To reproduce the negative control without USB access:
 
@@ -386,3 +386,32 @@ docker run --rm --network none --cpus 2 --memory 6g -v "$PWD:/work" \
 
 For a corrected kernel, omit `--reproduce-05b` and supply a fresh output
 directory. The runner then requires the compiled-instruction and alignment checks.
+
+## Corrected assembly: emulator progress and next core dependencies
+
+The corrected kernel passed source/checksum checks, actual linked alignment and
+AT/ISB/PAR/TLBI instruction checks. Kernel SHA-256:
+`51e54b18eede98199b6f42164804bc6cee174381dd903e230f0cac738d1c143a`.
+Its checked phone image is preserved locally as
+`flame/out/flame-xnu-39451069381.img`, SHA-256
+`fe29500e2784b03881808a5e2cfcd3a05b1ab59df98528d6174c696045d4d45d`.
+It has not been booted on the Pixel.
+
+The QEMU run `research/flame-qemu/fixed-39451069381/` reports `kva_active=1`
+and no framebuffer translation-check failure. The final console had advanced
+beyond early markers: VM bootstrap completed, the platform expert registered,
+and the boot CPU's SGI1 self-test passed. Timer/IRQ entries are present in the
+emulator log. The next stop is a real kernel panic:
+`pthread kernel extension not loaded (function table is NULL)` at
+`pthread_shims.c:318`. Zero glyphs were undecodable. This demonstrates a generic
+kernel/emulator milestone; Pixel IRQ/peripheral support remains unverified.
+
+The profile now explicitly selects patches 0001–0020, 0023, 0027, and Pixel0099,
+plus staging scripts 0019/0020. These add the matching Apple libpthread provider
+and portable AES/SHA256/MD5 providers needed by later generic kernel startup.
+The pinned libpthread commit is `a6c70ca0e544347a0377babf748f831577ec24f9`;
+the BearSSL commit is `7bea48e5e850ab4cafbe68d3765cdaba13a86d6f`.
+No filesystem, storage, AMFI replacement or later peripheral patch is selected.
+The manifest now covers all 25 source inputs (23 patches and two staging scripts),
+and stage/packer use the same selection function. All extra patches apply cleanly
+to the pinned source; the staged builder and helper scripts pass syntax checks.
