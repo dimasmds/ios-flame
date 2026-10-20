@@ -299,3 +299,17 @@ Diagnostic build: [run 39446889472](https://github.com/dimasmds/ios-flame/action
 commit `a5b5d635af983f4d2bf91023c31dd99669f1abae`. Run 39446831702 was cancelled
 after correcting required patch context; the corrected patch passed a complete
 reverse/forward application round trip on the pinned source.
+
+Subsequent inspection of the first kernel's linked symbol table found a concrete
+defect: `_flame_fb_l3` is at VA `0xfffffe0007c12000` (PA `0x101c12000`), only
+8 KiB aligned. The Mach-O `__DATA,__bss` section has 4 KiB alignment because
+`makedefs/MakeInc.def` explicitly forces it with `-sectalign`. The C object's
+16 KiB alignment attribute alone therefore did not produce a valid table base.
+This is consistent with the stage-8 failure; hardware confirmation of the fix
+is still pending.
+
+The table now uses `SECURITY_READ_ONLY_LATE`, like `bootstrap_pagetables`, in
+the 16 KiB aligned `__DATA_CONST` section. Its physical alignment is asserted
+before installing the descriptor. `flame/check_kernel.py` checks actual linked
+symbols and sections in CI and the payload packer; it correctly rejects the
+first hardware-test kernel. The translation diagnostics are retained.

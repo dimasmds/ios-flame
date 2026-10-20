@@ -60,7 +60,13 @@ adb independently confirms Android returned with boot_completed=1 and boot
 reason watchdog. No partition writes. Image hash and details in FLAME.md.
 
 **Next action:** diagnose the final framebuffer virtual mapping after XNU
-stage 8. Added a write-translation preflight for the first/last framebuffer
+stage 8. Found concrete linked-image defect: flame_fb_l3 VA fffffe0007c12000
+(PA 101c12000) is only 8K aligned; linker forces __DATA,__bss to 4K despite C's
+16K attribute. Moved table to SECURITY_READ_ONLY_LATE in __DATA_CONST, like
+bootstrap_pagetables; added runtime alignment assertion and actual Mach-O symbol
+checks to CI/packer. check_kernel.py rejects the known-bad first kernel.
+Need submit/follow fixed profile CI, verify linked alignment, then temp boot.
+Added a write-translation preflight for the first/last framebuffer
 addresses, bounded reads of final L1/L2/L3 descriptors through the still-live
 identity mapping, TCR/TTBR1/PAR output, and targeted alias TLB invalidation.
 If translation fails, the working console stays on its original address and

@@ -13,6 +13,7 @@ from mkadt import build as build_adt
 import adt
 import mkpayload
 from embed import validate
+from check_kernel import check_kernel
 
 XNU_COMMIT = '1b191cb58250d0705d8a51287127505aa4bc0789'
 
@@ -36,6 +37,7 @@ def main():
     checksum = (source / 'SHA256SUMS').read_text().split()
     if len(checksum) != 2 or checksum[0] != kernel_sha or Path(checksum[1]).name != kernel.name:
         raise ValueError('Kernel checksum mismatch')
+    check_kernel(kernel)
     m = mkpayload.parse_macho(kernel.read_bytes())
     if m['cputype'] != 0x100000c or m['cpusub'] != 0:
         raise ValueError('Expected non-PAC arm64 kernel')

@@ -27,6 +27,8 @@ def verify(source):
         raise SystemExit("Early console is not aimed at the measured Pixel framebuffer")
     if "FLAME FINAL FB TRANSLATION FAILED" not in early or "at s1e1w" not in early:
         raise SystemExit("Final framebuffer translation preflight diagnostics missing")
+    if "SECURITY_READ_ONLY_LATE(tt_entry_t) flame_fb_l3" not in (source / "osfmk/arm64/arm_vm_init.c").read_text():
+        raise SystemExit("Final framebuffer table must use the aligned RO-late section")
     print("Pixel source profile verified; storage driver excluded")
 
 

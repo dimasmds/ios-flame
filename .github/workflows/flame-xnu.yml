@@ -42,6 +42,7 @@ jobs:
       - name: Verify source profile and collect artifacts
         run: |
           python3 flame/stage_kernel.py verify dxb/xnu
+          python3 flame/check_kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
           mkdir -p flame-kernel
           cp dxb/fakeroot/System/Library/Kernels/kernel.development.sweet flame-kernel/
           cp dxb/flame-patches.json flame-kernel/
