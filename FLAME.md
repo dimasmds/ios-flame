@@ -85,9 +85,9 @@ those in the stock boot image. No Apple firmware has been downloaded.
 
 | Item | Pixel 4 evidence | Remaining work |
 | --- | --- | --- |
-| Boot wrapper | v2, 4096-byte pages, LZ4 + checksum, DTBs, AVB footer; hardware probe accepted | Adapt for an XNU payload after validating RAM |
+| Boot wrapper | v2, 4096-byte pages, LZ4 + checksum, DTBs, AVB footer; XNU and userspace probe run | Validate the larger HFS RAM-root image on hardware |
 | CPU affinity | Probe: EL1, MIDR `0x51df805e`, MPIDR `0x81000000`, TGRAN16 `1`; source affinities `0x000` … `0x700` | Start with boot-core affinity 0; do not reuse topaz's Gold handoff |
-| GIC | Google source: distributor `0x17a00000`, redistributors `0x17a60000` | Validate live FDT; port interrupt and SMP initialization |
+| GIC | Live FDT validated; distributor `0x17a00000`, redistributors `0x17a60000`; SGI1 self-test passes | Broaden interrupt testing; implement SMP |
 | Timer | Google source: 19.2 MHz, virtual timer PPI 3 → INTID 19 | Test timer interrupts |
 | UFS | Running Android platform device `1d84000.ufshc` | Validate register layout, DMA, IOMMU/firmware state; disable all writes initially |
 | Splash | Photo confirms reservation `0x9c400000` / `0x02400000` and visible diagnostic text | Characterize refresh for continuous UI |
@@ -536,7 +536,7 @@ source-built userspace probe, not an Apple launchd/iOS UI boot. The next work
 is a RAM-only filesystem test before expanding userland.
 
 
-## Next milestone: HFS+ root in RAM
+## HFS+ root in RAM
 
 Profile 0001–0027 plus Pixel0099 adds the audited built-in HFS integration and
 its pinned source-staging helper (28 patches / 34 source inputs total).
@@ -563,8 +563,8 @@ embeds the image in bounded kernel-managed RAM and selects rd=md0. No rootrw
 or UFS arguments are supplied. The simulator's --hfs-root PATH additionally
 requires an HFS mount, PID 1 banner, successful file read and >=2 heartbeats.
 All 28 patches apply locally; source/profile, Python/script syntax, relocation
-and malformed/dirty/out-of-bounds image checks pass. CI/emulator and a new
-Pixel hardware test are pending.
+and malformed/dirty/out-of-bounds image checks pass. Build and test results
+follow below.
 
 
 First HFS build run 39514318925 compiled the kernel, passed source/linked
@@ -573,3 +573,37 @@ hdiutil requires a source folder/device when -format is specified. Blank image
 creation now uses -type UDIF (read/write) and a positional output path. Image
 preparation runs before kernel compilation to catch this class of error early.
 No artifact was uploaded from that failed run; no new Pixel boot occurred.
+
+
+The corrected [CI run 39515112847](https://github.com/dimasmds/ios-flame/actions/runs/39515112847)
+at `f16d6c039a71a0663b71c35e2392c19ab3b6e0d8` succeeded, including native image
+creation/population/clean detach and source/linked kernel checks. Both assembled
+init variants match independent GNU code, including the stack-alignment
+prologue; all ad-hoc CodeDirectory page hashes independently match.
+
+The 150-second emulator run `research/flame-qemu/hfs-root-39515112847/` PASSED:
+HFS mounted FlameRAM, init ran as PID 1, `FLAME HFS: file read verified` appeared,
+and 17 heartbeats followed. Zero undecodable glyphs, `kva_active=1`, no
+translation failure and no panic observed in the snapshot. This proves the
+RAM filesystem/exec/read path in the simulator; actual Pixel evidence is pending.
+
+Kernel SHA-256: `d3a8065cff9ec944ec0418a435116abe7252bd912a6e1701692c6a2dd6a01d9e`.
+HFS root SHA-256: `d1436214143f05719c43710385a4cd161db31ddcd0321204ab26dd81e3d28524`.
+Filesystem init SHA-256: `ad8c0f2fe061c6530c6d29a6c8483a8aadeefd8c788ffa5c42d4740e36ed620c`.
+
+The combined Image exceeds the host decoder's old 32 MiB output cap. Its cap
+now matches the existing bounded loader's 64 MiB maximum. The actual Image
+round trip, explicit output-bound rejection and >64 MiB rejection pass; no
+loader/device bound changed. All host boot-image checks pass.
+
+**Hardware test 05e:** preserved image
+`flame/out/flame-xnu-39515112847-hfs-root.img`, SHA-256
+`9abb1166c36b22a34a093bccd8c6ce8a9b6e94b02a2ba7acee541a851d648966`.
+Entry PA `0x10149d488`, HFS RAM `0x1020e8000+0x1000000`, boot arguments
+`0x1030ec000`, top `0x1030f0000`. Preflight verified flame, Android ready,
+unlocked and the exact image hash. Temporary fastboot boot was accepted:
+sending 65536 KB OKAY (1.612s), booting OKAY (4.103s), total 5.748s.
+Ignored transcript: research/flame-device/probe-05e-fastboot.txt.
+**Screen evidence and Android return are pending.** The owner was asked to
+capture after about 120 seconds. No flash/erase or persistent phone storage
+writes were issued. This remains a source-built probe, not Apple iOS userland.

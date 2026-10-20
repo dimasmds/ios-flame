@@ -49,7 +49,8 @@ def compress(data):
     return dst.raw[:size]
 
 
-def decompress(data, limit=0x2000000):
+def decompress(data, limit=0x4000000):
+    # Match the bounded loader's 64 MiB Image limit, including a RAM root.
     lib = library()
     ctx = c.c_void_p()
     if lib.LZ4F_isError(lib.LZ4F_createDecompressionContext(c.byref(ctx), 100)):

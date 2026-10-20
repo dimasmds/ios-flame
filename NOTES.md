@@ -2,7 +2,36 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: owner confirms the RAM-only userspace heartbeat on the Pixel (05d).**
+**Latest: HFS+ RAM-root test 05e temporarily loaded; awaiting screen evidence.**
+Corrected CI 39515112847 at f16d6c039a71a0663b71c35e2392c19ab3b6e0d8 succeeded.
+150-second QEMU test research/flame-qemu/hfs-root-39515112847 PASSED: HFS mounted
+FlameRAM, init PID 1, `FLAME HFS: file read verified`, 17 heartbeats, zero
+unknown glyphs, kva_active=1, no translation failure or panic observed. Both
+init variants match independent GNU machine code, including stack alignment;
+all CodeDirectory page hashes verified. Root/header/profile/checksums, linked
+kernel checks, payload bounds and all host boot-image checks pass.
+
+Image flame/out/flame-xnu-39515112847-hfs-root.img SHA256:
+9abb1166c36b22a34a093bccd8c6ce8a9b6e94b02a2ba7acee541a851d648966.
+Kernel SHA256 d3a8065cff9ec944ec0418a435116abe7252bd912a6e1701692c6a2dd6a01d9e.
+HFS root SHA256 d1436214143f05719c43710385a4cd161db31ddcd0321204ab26dd81e3d28524.
+FS init SHA256 ad8c0f2fe061c6530c6d29a6c8483a8aadeefd8c788ffa5c42d4740e36ed620c.
+Entry PA 0x10149d488, RAM HFS 0x1020e8000+0x1000000, boot args 0x1030ec000,
+top 0x1030f0000. After verifying flame / Android boot_completed=1 / unlocked and
+matching the image hash, temporary `fastboot boot` accepted: sending 65536 KB
+OKAY (1.612s), booting OKAY (4.103s), total 5.748s. Transcript:
+research/flame-device/probe-05e-fastboot.txt. No flash/erase or persistent phone
+storage writes. Owner asked to capture after ~120 seconds, ideally showing
+`FLAME HFS: file read verified` and heartbeats. Hardware HFS mount/read and
+Android return are still pending; do not infer those from fastboot acceptance.
+Await owner's screen evidence before further reboot. No Apple userland supplied.
+
+The larger Image exposed a host-only LZ4 decoder's old 32 MiB default cap.
+Raised it to match the existing bounded loader's 64 MiB Image maximum; the
+actual >32 MiB Image round trip passes and explicit/default output limits
+reject overflow. No loader/device limit was raised.
+
+**Completed 05d: owner confirms the RAM-only userspace heartbeat on Pixel.**
 Owner text: "yes it's shown SWEET init: still alive. init running as PID 1
 already replaced i think". This establishes the source-built test program is
 executing in userspace and writing to /dev/console on real hardware. It is
@@ -33,7 +62,7 @@ No flash/erase/persistent filesystem writes. After loading, the owner reported
 the userspace heartbeat as recorded above. Android return is verified. This
 source program is not Apple launchd/iOS userland. No new firmware was downloaded.
 
-**Next: real HFS+ filesystem in RAM, no UFS controller or device partitions.**
+**HFS+ RAM-root profile: no UFS controller or device partitions.**
 Added audited 0026 built-in Apple OSS HFS (627.100.6, immutable commit
 31d5ec238dfab485e78a9a30b8b92d13e8914f03) and its staging helper. Current
 selection is 0001–0027 +Pixel0099, three dependency helpers, the two existing
@@ -55,8 +84,11 @@ https://github.com/dimasmds/ios-flame/actions/runs/39514318925
 hdiutil rejects -format UDRW for blank create (-format requires -srcfolder or
 -srcdevice). Corrected to -type UDIF with positional image path. Moved probe/
 root preparation before kernel build so image-tool errors fail quickly.
-Failed run uploaded no artifact. Next: dispatch corrected workflow, then
-150-second emulator validation. No new Pixel boot yet.
+Failed run uploaded no artifact. Corrected run 39515112847 at
+f16d6c039a71a0663b71c35e2392c19ab3b6e0d8 succeeded:
+https://github.com/dimasmds/ios-flame/actions/runs/39515112847
+Artifact verification and 150-second emulator validation passed; hardware
+test 05e is loaded, awaiting owner evidence as recorded above.
 
 **Completed test 05c: XNU reaches root-device discovery on Pixel.**
 Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,
