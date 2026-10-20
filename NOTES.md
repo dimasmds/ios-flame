@@ -23,7 +23,8 @@ back and the product was verified again before the capture rerun. The owner
 supplied the 120-second probe photo and confirmed Android returned to its home
 screen. adb confirmed boot_completed=1. Android reports sys.boot.reason=watchdog;
 the reset cause is unresolved. Do not claim XNU or iOS has booted. No flashing or erase commands were
-issued. No GitHub fork, push, or CI build was performed.
+issued. GitHub publication/build authorization and the current run are recorded
+below.
 
 Checks: `bash flame/build.sh`, `python3 flame/check.py`, ELF relocation
 inspection (none), and `git diff --check`. Build uses cross GCC already installed
@@ -50,27 +51,39 @@ pages (0x100000000, 0x13fffc000) were tested/restored, not all 1 GiB. Android
 returned, verified through adb boot_completed=1. Android still reports
 watchdog as the boot reason. No storage code has been added.
 
-**Next action:** build the prepared early-console kernel. The owner first
+**MMU milestone:** probe 04 passed in the owner's photo: five table pages,
+root 0x80090000, TCR 0x1409cb01c, SCTLR on 0xc00809; first/last page translations
+verified; zero pattern/restore errors; TRANSLATED TWO PAGE TEST PASSED;
+SCTLR restored 0xc00808, MMU DISABLED AGAIN. Only these two pages were tested.
+adb independently confirms Android returned with boot_completed=1 and boot
+reason watchdog. No partition writes. Image hash and details in FLAME.md.
+
+**Next action:** finish the early-console kernel build and prepare a bounded
+Pixel payload loader. The owner first
 requested local-only work, then explicitly authorized trying GitHub Actions
 after learning GitHub supplies a Mac runner. Publishing a source-only public
 fork/Pixel branch and running the prepared macOS workflow are authorized.
-No device dumps or downloaded firmware may be uploaded. The workflow and
-profile are prepared and locally validated; run URL/commit must be recorded
-once started. No Pixel kernel has compiled or booted yet.
+No device dumps or downloaded firmware may be uploaded. Public fork
+https://github.com/dimasmds/ios-flame now has default branch pixel4-bringup.
+Actions run 39443010166 at commit 5677199723efe6d6c840e97381da7bf10e0bef18:
+https://github.com/dimasmds/ios-flame/actions/runs/39443010166
+Setup passed; kernel compilation is in progress. No successful artifact yet
+and no Pixel kernel has booted.
 
 Kernel profile: .github/workflows/flame-xnu.yml pins XNU 8796.141.3,
 selects inherited 0001–0018 only, plus flame/patches/0099-flame-early-console.patch.
 This excludes the Redmi storage/input/network drivers. Pixel framebuffer
 viewport gets exact 16K page mappings at bootstrap and final VA; Cortex-A55
 flags and Pixel IONameMatch values are selected. flame/mkadt.py emits a
-one-CPU early ADT with no storage. A 16K MMU translation probe must still be
-prepared/tested before attempting the kernel on hardware.
+one-CPU early ADT with no storage. The 16K MMU translation probe has now passed
+on hardware. A bounded Pixel payload loader remains to be implemented and
+validated; do not reuse the Redmi shim unmodified.
 
 Read-only kernel audit: existing upstream buildtree run 39419628786, commit
 2665612a9eabb76b294cbc1b014132c6b89d09db, is extracted under ignored
 research/upstream-2665612/. It is later than this branch's base. Identified
 hard-coded early framebuffer/display-height and boot-affinity assumptions;
-details in FLAME.md. No Pixel kernel build has run.
+details in FLAME.md. The separate Pixel build above is now running.
 The existing `tools/mkadt.py`, `shim/`, and XNU patch series remain Redmi-specific
 and must not be booted unmodified. Later topaz patches include hardware drivers
 and persistent UFS writes; audit/gate them before attempting Pixel XNU.

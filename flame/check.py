@@ -9,6 +9,7 @@ import argparse
 from lz4_image import decompress
 from check_memory import check_memory
 from check_ram import check_ram
+from check_mmu import check_mmu
 
 ROOT = Path(__file__).resolve().parent
 U32 = lambda *v: struct.pack(">" + "I" * len(v), *v)
@@ -26,12 +27,12 @@ def node(name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", nargs="?", choices=["01", "02", "03"], default="01")
+    parser.add_argument("mode", nargs="?", choices=["01", "02", "03", "04"], default="01")
     mode = parser.parse_args().mode
     with tempfile.TemporaryDirectory() as tmp:
         libpath = Path(tmp) / "fdt.so"
         subprocess.run(["gcc", "-shared", "-fPIC", "-Wall", "-Wextra", "-Werror",
-                        str(ROOT / "fdt.c"), str(ROOT / "memory.c"), str(ROOT / "ram.c"), "-o", str(libpath)], check=True)
+                        str(ROOT / "fdt.c"), str(ROOT / "memory.c"), str(ROOT / "ram.c"), str(ROOT / "mmu.c"), "-o", str(libpath)], check=True)
         lib = ctypes.CDLL(str(libpath))
 
         class DT(ctypes.Structure):
@@ -44,6 +45,7 @@ def main():
         lib.dt_prop.restype = ctypes.c_void_p
         check_memory(lib, DT)
         check_ram(lib)
+        check_mmu(lib)
 
         def lookup(data, path, key=b"reg"):
             buf = ctypes.create_string_buffer(data)

@@ -3,6 +3,7 @@
 #include "fdt.h"
 #include "memory.h"
 #include "ram.h"
+#include "mmu.h"
 #include "../shim/font.h"
 
 #define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
@@ -103,7 +104,10 @@ void probe_main(uintptr_t fdt_address)
     screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
 #ifdef PROBE_MAP
-#ifdef PROBE_RAM
+#ifdef PROBE_MMU
+    line("PIXEL 4 / FLAME - MMU PROBE 04");
+    line("16K IDENTITY TRANSLATION TEST");
+#elif defined(PROBE_RAM)
     line("PIXEL 4 / FLAME - RAM PROBE 03");
     line("TEST TWO 16K PAGES, THEN RESTORE");
 #else
@@ -124,14 +128,48 @@ void probe_main(uintptr_t fdt_address)
     hex("CONFLICTS", map.conflicts);
     hex("MAP ERRORS", map.errors);
     if (!map.errors && !map.conflicts && !map.unbounded_pools) {
-#ifdef PROBE_RAM
+#if defined(PROBE_RAM) || defined(PROBE_MMU)
         line("NO DT CONFLICTS - TEST PERMITTED");
 #else
         line("NO DT CONFLICTS - NOT RAM TESTED");
 #endif
     } else
         line("CANDIDATE NOT CLEARED FOR XNU");
-#ifdef PROBE_RAM
+#ifdef PROBE_MMU
+    if (!map.errors && !map.conflicts && !map.unbounded_pools && map.contained) {
+        struct mmu_report mmu;
+        uintptr_t first = map.candidate, last = map.candidate + map.size - RAM_TEST_PAGE;
+        if (!mmu_prepare((uintptr_t)_head, (uintptr_t)_end, (uintptr_t)screen,
+                         WIDTH * HEIGHT * 4, first, last, &mmu)) line("MMU TABLE PREPARATION FAILED");
+        else {
+            hex("TABLE ROOT", mmu.root);
+            hex("TABLE PAGES", mmu.tables);
+            line("ENABLING 16K MMU");
+            if (!mmu_enable(&mmu)) line("MMU PRECONDITIONS FAILED");
+            else {
+                uint64_t a = mmu_translate(first), b = mmu_translate(last);
+                hex("TCR", READ("tcr_el1"));
+                hex("SCTLR ON", READ("sctlr_el1"));
+                hex("PAR FIRST", a); hex("PAR LAST", b);
+                if (!(a & 1) && !(b & 1) && (a & 0x0000fffffffff000ULL) == first &&
+                    (b & 0x0000fffffffff000ULL) == last) {
+                    line("16K TRANSLATIONS VERIFIED");
+                    struct ram_report ram;
+                    if (!ram_test(map.candidate, map.size, &ram)) line("TRANSLATED RAM TEST REJECTED");
+                    else {
+                        hex("PATTERN ERRORS", ram.pattern_errors);
+                        hex("RESTORE ERRORS", ram.restore_errors);
+                        if (!ram.pattern_errors && !ram.restore_errors) line("TRANSLATED TWO PAGE TEST PASSED");
+                        else line("TRANSLATED RAM TEST FAILED");
+                    }
+                } else line("TRANSLATION CHECK FAILED");
+                mmu_disable(&mmu);
+                hex("SCTLR RESTORED", READ("sctlr_el1"));
+                line("MMU DISABLED AGAIN");
+            }
+        }
+    } else line("MMU TEST SKIPPED - MAP CHECK FAILED");
+#elif defined(PROBE_RAM)
     uint64_t sctlr = READ("sctlr_el1");
     hex("SCTLR", sctlr);
     if (!map.errors && !map.conflicts && !map.unbounded_pools && map.contained && !(sctlr & 5)) {

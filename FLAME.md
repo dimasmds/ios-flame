@@ -164,6 +164,32 @@ This verifies only the two tested pages. No storage driver is present.
 Image SHA-256:
 `232f10ef3b68dc426c7653c37e67682304d088cb55dbfa90c18dde257e30a78c`.
 
+## MMU translation probe 04
+
+```sh
+bash flame/build.sh 04
+python3 flame/check.py 04
+```
+
+This variant repeats the live map checks, constructs 16 KiB identity mappings,
+enables the EL1 MMU with caches unchanged, and repeats the two-page RAM test.
+Only the running probe, visible framebuffer viewport, and two test pages are
+mapped. The tables use Normal non-cacheable memory. Host checks inspect the
+actual C table builder, including executable/data permissions and exclusions
+for neighbouring firmware and untested RAM pages.
+
+The owner's photo confirms five table pages, root `0x80090000`, TCR
+`0x1409cb01c`, SCTLR enabled `0xc00809`, and successful translations of
+`0x100000000` and `0x13fffc000`. Pattern and restore errors are both zero;
+`TRANSLATED TWO PAGE TEST PASSED` is visible. SCTLR was restored to `0xc00808`
+and the screen reports `MMU DISABLED AGAIN`. This proves 16K translation and
+access for these mappings, not a test of the full 1 GiB or an XNU boot.
+
+Android returned; adb reported boot_completed=1 and boot reason `watchdog`.
+The reset cause remains unresolved. No partitions were written.
+Image SHA-256:
+`fc2773fb93750f97d7dacbf22ca97ebadb35ab4ea6394b3b7ffe762ec94ccfc4`.
+
 ## Kernel audit in progress
 
 For read-only source inspection, downloaded the existing upstream
@@ -198,5 +224,11 @@ Local validation: all 18 bootstrap patches plus the Pixel patch applied to the
 pinned clean Apple source; source-profile checks passed; workflow YAML and build
 script syntax passed. The generated early ADT has one CPU at affinity zero,
 the candidate 1 GiB RAM range, Pixel GIC addresses from Google source, and no
-storage/input nodes. The kernel has not yet been compiled or booted. A separate
-16K translation test remains necessary before a kernel hardware attempt.
+storage/input nodes. Probe 04 has now passed on hardware. The kernel has not
+yet been booted.
+
+Published source branch: `dimasmds/ios-flame`, `pixel4-bringup`.
+The first build uses commit `5677199723efe6d6c840e97381da7bf10e0bef18`:
+[Actions run 39443010166](https://github.com/dimasmds/ios-flame/actions/runs/39443010166).
+Setup completed and the kernel compilation is in progress. A successful
+artifact and a bounded Pixel payload loader are still needed before booting it.
