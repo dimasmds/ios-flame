@@ -37,14 +37,26 @@ RAM 0x80000000 + 0x3cc00000 and 0xc0000000 + 0x140000000; splash reservation
 0x9c400000 + 0x02400000; FDT 0x84500000, size 0xadd03. Photo transcription
 and Android return check saved in ignored research/flame-device/.
 
-**Next action:** memory-map probe 02 is booted, with a requested photo of the
-whole screen. Inspect its CONFLICTS, UNBOUNDED POOLS, and MAP ERRORS values and
-confirm Android returns. Candidate is [0x100000000, 0x140000000). This variant
-does not touch candidate RAM. It checks complete DT traversal, static and
-dynamic reservations, the FDT memreserve table, initrd, FDT blob, and running
-image. A clean report only clears metadata checks, not memory access or XPU.
-Host tests and packaging checks passed. `FLAME.md` records the 02 hash and
-details. Do not assume a whole RAM bank is free.
+**Map milestone:** probe 02 implementation is commit `6bcfd42`. The owner's
+photo confirms IN RAM=1, RAM BANKS=2, FIXED RANGES=0x1a, FIXED END=0xac800000,
+RESERVE ENTRIES=0, DYNAMIC POOLS=8, UNBOUNDED POOLS=0, CONFLICTS=0, MAP ERRORS=0.
+Android returned, verified via adb boot_completed=1. Candidate is
+[0x100000000, 0x140000000). This clears only the checked DT metadata.
+
+**Next action:** RAM probe 03 is now booted; the owner was asked for a whole
+screen photo, especially PATTERN ERRORS, RESTORE ERRORS, and final result.
+It repeats the map check, requires SCTLR.M/C off, saves/tests/restores just the
+first and last 16 KiB pages of the candidate (0x100000000 and 0x13fffc000).
+Do not claim all 1 GiB was tested. Host tests verified restoration and untouched
+middle pages, invalid argument rejection, plus the existing map/image checks.
+Build SHA-256 and detailed limitations are in `FLAME.md`. Confirm Android
+returns after this test. No storage code has been added.
+
+Read-only kernel audit: existing upstream buildtree run 39419628786, commit
+2665612a9eabb76b294cbc1b014132c6b89d09db, is extracted under ignored
+research/upstream-2665612/. It is later than this branch's base. Identified
+hard-coded early framebuffer/display-height and boot-affinity assumptions;
+details in FLAME.md. No Pixel kernel build has run.
 The existing `tools/mkadt.py`, `shim/`, and XNU patch series remain Redmi-specific
 and must not be booted unmodified. Later topaz patches include hardware drivers
 and persistent UFS writes; audit/gate them before attempting Pixel XNU.

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "fdt.h"
 #include "memory.h"
+#include "ram.h"
 #include "../shim/font.h"
 
 #define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
@@ -102,8 +103,13 @@ void probe_main(uintptr_t fdt_address)
     screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
 #ifdef PROBE_MAP
+#ifdef PROBE_RAM
+    line("PIXEL 4 / FLAME - RAM PROBE 03");
+    line("TEST TWO 16K PAGES, THEN RESTORE");
+#else
     line("PIXEL 4 / FLAME - MAP PROBE 02");
     line("READ-ONLY MEMORY MAP CHECK");
+#endif
     struct map_report map;
     map_check(&dt, 0x100000000ULL, 0x40000000ULL, (uintptr_t)_head, (uintptr_t)_end, &map);
     hex("CANDIDATE", map.candidate);
@@ -117,11 +123,36 @@ void probe_main(uintptr_t fdt_address)
     hex("UNBOUNDED POOLS", map.unbounded_pools);
     hex("CONFLICTS", map.conflicts);
     hex("MAP ERRORS", map.errors);
-    if (!map.errors && !map.conflicts && !map.unbounded_pools)
+    if (!map.errors && !map.conflicts && !map.unbounded_pools) {
+#ifdef PROBE_RAM
+        line("NO DT CONFLICTS - TEST PERMITTED");
+#else
         line("NO DT CONFLICTS - NOT RAM TESTED");
-    else
+#endif
+    } else
         line("CANDIDATE NOT CLEARED FOR XNU");
+#ifdef PROBE_RAM
+    uint64_t sctlr = READ("sctlr_el1");
+    hex("SCTLR", sctlr);
+    if (!map.errors && !map.conflicts && !map.unbounded_pools && map.contained && !(sctlr & 5)) {
+        line("RAM ACCESS STARTING");
+        struct ram_report ram;
+        if (!ram_test(map.candidate, map.size, &ram)) line("RAM TEST ARGUMENTS REJECTED");
+        else {
+            hex("FIRST PAGE", ram.first);
+            hex("LAST PAGE", ram.last);
+            hex("WORDS COMPARED", ram.words_compared);
+            hex("PATTERN ERRORS", ram.pattern_errors);
+            hex("RESTORE ERRORS", ram.restore_errors);
+            if (!ram.pattern_errors && !ram.restore_errors)
+                line("TWO PAGE RAM TEST PASSED");
+            else line("RAM TEST FAILED - STOP HERE");
+        }
+    } else line("RAM ACCESS SKIPPED - STOP HERE");
+    line("REST OF 1 GIB RANGE NOT TESTED");
+#else
     line("CANDIDATE RAM WAS NOT ACCESSED");
+#endif
 #else
     line("PIXEL 4 / FLAME - PROBE 01");
     line("CPU + BOOT DEVICE TREE ONLY");

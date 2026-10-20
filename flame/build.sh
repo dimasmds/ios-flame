@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mode="${1:-01}"
-case "$mode" in 01|02) ;; *) echo 'Usage: bash flame/build.sh [01|02]' >&2; exit 1 ;; esac
+case "$mode" in 01|02|03) ;; *) echo 'Usage: bash flame/build.sh [01|02|03]' >&2; exit 1 ;; esac
 mkdir -p out
 sources=../research/flame-sources
 if [[ ! -f "$sources/sm8150.dtb" || ! -f "$sources/sm8150-v2.dtb" || ! -f "$sources/avbtool.py" || ! -f "$sources/mkbootimg.py" || ! -f "$sources/gki/generate_gki_certificate.py" ]]; then
@@ -12,16 +12,17 @@ if [[ ! -f "$sources/sm8150.dtb" || ! -f "$sources/sm8150-v2.dtb" || ! -f "$sour
 fi
 cc="${CROSS_COMPILE:-aarch64-linux-gnu-}gcc"
 flags=(-O2 -ffreestanding -nostdlib -fno-pic -fno-pie -fno-jump-tables -mgeneral-regs-only -mstrict-align -fno-stack-protector -Wall -Wextra -Werror)
-if [[ "$mode" == 02 ]]; then flags+=(-DPROBE_MAP); fi
-for source in start.S probe.c fdt.c memory.c; do
+if [[ "$mode" != 01 ]]; then flags+=(-DPROBE_MAP); fi
+if [[ "$mode" == 03 ]]; then flags+=(-DPROBE_RAM); fi
+for source in start.S probe.c fdt.c memory.c ram.c; do
     "$cc" "${flags[@]}" -c "$source" -o "out/${source%.*}.o"
 done
-if "${CROSS_COMPILE:-aarch64-linux-gnu-}readelf" -r out/probe.o out/fdt.o out/memory.o | rg -q 'ABS64'; then
+if "${CROSS_COMPILE:-aarch64-linux-gnu-}readelf" -r out/probe.o out/fdt.o out/memory.o out/ram.o | rg -q 'ABS64'; then
     echo 'Unexpected absolute relocation in position-independent probe.' >&2
     exit 1
 fi
 "$cc" "${flags[@]}" -static -no-pie -T probe.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
-    out/start.o out/probe.o out/fdt.o out/memory.o -o out/probe.elf
+    out/start.o out/probe.o out/fdt.o out/memory.o out/ram.o -o out/probe.elf
 "${CROSS_COMPILE:-aarch64-linux-gnu-}objcopy" -O binary out/probe.elf out/Image
 size=$("${CROSS_COMPILE:-aarch64-linux-gnu-}nm" out/probe.elf | awk '$3=="_end"{print $1}')
 truncate -s "$((16#$size))" out/Image

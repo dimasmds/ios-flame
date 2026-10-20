@@ -129,6 +129,48 @@ as RAM-size thresholds and amounts to offline, not physical reserved ranges.
 
 Build and host checks passed (including conflict, overflow, dynamic-pool,
 initrd/image, and malformed-reservation cases). The bootloader accepted the
-02 image on the same verified Pixel; screen capture is pending.
+02 image on the same verified Pixel. The owner's photo confirms:
+
+- Candidate `0x100000000`, size `0x40000000`, contained in RAM.
+- 2 RAM banks, 26 fixed ranges, highest fixed end `0xac800000`.
+- 0 reservation-table entries; 8 dynamic pools; 0 unbounded pools.
+- 0 conflicts and 0 map errors; `NO DT CONFLICTS - NOT RAM TESTED`.
+
+Android returned and adb reported `sys.boot_completed=1`; the recorded Android
+boot reason remains `watchdog` (reset cause not established).
+
 Image SHA-256:
 `691b20951f20808f8056e285385df104db9e142a230534c6a7380124b59d8cb3`.
+
+## RAM-access probe 03
+
+```sh
+bash flame/build.sh 03
+python3 flame/check.py 03
+```
+
+This variant repeats the live memory-map checks, requires MMU and data cache
+off, then saves/tests/restores exactly two 16 KiB pages:
+`0x100000000` and `0x13fffc000`. It compares two address-dependent patterns
+across both pages, then restores and verifies the original contents. Other
+candidate pages are not accessed. An exception or reset may interrupt
+restoration; only a completed test reports its restore verification.
+
+Host tests passed for restoration, untouched middle pages, alignment, range
+size, and overflow rejection. The bootloader accepted probe 03; hardware
+results await the owner's photo. No storage driver is present.
+Image SHA-256:
+`232f10ef3b68dc426c7653c37e67682304d088cb55dbfa90c18dde257e30a78c`.
+
+## Kernel audit in progress
+
+For read-only source inspection, downloaded the existing upstream
+`xnu-buildtree` artifact from run `39419628786`, commit
+`2665612a9eabb76b294cbc1b014132c6b89d09db`, into ignored
+`research/upstream-2665612/`. This is a later upstream snapshot than this
+branch's base and does not represent a Pixel kernel build.
+
+Confirmed obstacles include a hard-coded early framebuffer in `start.s` and
+`sweet_early.c`, a 2400-line display assumption, and a boot-CPU affinity check
+requiring `0x100`. The UFS initialization can also start Redmi input drivers
+and persistent logging. None of that kernel code has been run on the Pixel.
