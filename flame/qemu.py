@@ -76,7 +76,7 @@ def main():
     if monitor.exists():
         raise ValueError('Existing QMP socket; use a fresh output directory')
     cmd = ['qemu-system-aarch64', '-M', 'virt,gic-version=3', '-cpu', 'cortex-a76',
-           '-smp', '1', '-m', '4G', '-nographic', '-serial', f'file:{output}/serial.txt',
+           '-smp', '1', '-m', '4G', '-nic', 'none', '-nographic', '-serial', f'file:{output}/serial.txt',
            '-qmp', f'unix:{monitor},server,nowait', '-no-reboot',
            '-d', 'int,guest_errors,unimp', '-D', str(output / 'qemu.log'),
            '-device', f'loader,file={output}/ram.bin,addr={physical:#x},force-raw=on',
@@ -95,20 +95,30 @@ def main():
         _, registers = qemu.qmp(str(monitor), 'stop', 'info registers',
                                pmemsave=(qemu.FB_BASE, qemu.FB_STRIDE * qemu.FB_H, str(output / 'fb.raw')))
         (output / 'registers.txt').write_text(registers)
+        virtual_base = struct.unpack_from('<Q', payload, 0x10)[0]
+        kva_address = physical + symbol_address(kernel, '_kva_active') - virtual_base
+        qemu.qmp(str(monitor), pmemsave=(kva_address, 4, str(output / 'kva_active.bin')))
+        kva_active = struct.unpack('<I', (output / 'kva_active.bin').read_bytes())[0]
         raw = (output / 'fb.raw').read_bytes()
         qemu.write_png(str(output / 'fb.png'), raw)
-        screen, unknown = qemu.decode_screen(raw, font)
+        # The bottom band contains coloured stage markers, not text glyphs.
+        text_end = ((qemu.FB_H - 32) // 32) * 32 * qemu.FB_STRIDE
+        screen, unknown = qemu.decode_screen(raw[:text_end] + bytes(len(raw) - text_end), font)
         (output / 'fb.txt').write_text(screen)
         result = qemu.screen_result(screen, unknown)
         result.update({'simulation_only': True, 'qemu_version': version, 'kernel_sha256': kernel_hash,
                        'stage9_visible': 'kernel framebuffer VA live' in screen,
                        'stage14_visible': 'early I/O page tables ready' in screen,
+                       'kva_active': kva_active,
+                       'framebuffer_handoff_verified': kva_active == 1,
+                       'waiting_for_root': 'Still waiting for root device' in screen,
                        'translation_check_failed': 'FLAME FINAL FB TRANSLATION FAILED' in screen})
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(screen, flush=True)
         print(json.dumps(result, indent=2), flush=True)
         return 0 if args.reproduce_05b and result['translation_check_failed'] else (
-            0 if not args.reproduce_05b and result['stage9_visible'] and not result['translation_check_failed'] else 2)
+            0 if not args.reproduce_05b and result['framebuffer_handoff_verified'] and
+                 result['status'] == 'no_panic_observed' and not result['translation_check_failed'] else 2)
     finally:
         if process.poll() is None:
             process.kill()

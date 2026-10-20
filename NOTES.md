@@ -14,14 +14,22 @@ after `;` in the new inline-asm strings. Only AT executed; ISB/MRS PAR and TLBI
 were absent. Printed values match stale GPRs (PTE, range-check constant, L2
 descriptor). The source now uses newline separators and a noinline translation
 helper. check_kernel.py now checks actual AT/ISB/MRS and both TLBI instructions;
-it rejects the broken 05b artifact. Need build/validate the corrected kernel.
+it rejects the broken 05b artifact. Corrected build run 39451069381 at
+12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7 is compiling:
+https://github.com/dimasmds/ios-flame/actions/runs/39451069381
+Next: download/verify artifact, run it through flame/qemu.py, fix any emulator
+failures that can be resolved offline, prepare a checked phone image for later.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with
-QEMU GIC/timer values; no USB access or Android boot image is involved. A run
-to reproduce 05b is in progress under research/flame-qemu/05b-reproduce;
-output log research/flame-sources/qemu-05b-reproduce.log. Simulation does not
-validate Pixel peripherals. Update this paragraph after the result.
+QEMU GIC/timer values; no USB access or Android boot image is involved.
+research/flame-qemu/05b-negative-control reproduces the owner's complete screen
+and every L1/L2/L3/stale-PAR value exactly, with kva_active=0 and the expected
+failed-check message. Result has zero undecodable glyphs; coloured stage-marker
+band is excluded from text decoding. Initial runner lacked a default NIC's ROM;
+-nic none fixes that unnecessary device dependency. Simulation does not validate
+Pixel peripherals. adb independently verifies flame/boot_completed=1 after the
+owner's last manual restart; boot reason bootloader. No further device boots.
 
 Repository `/home/dimasmds/projects/ios-flame`, branch `pixel4-bringup`, based
 on topaz commit `3eacb48`. The current task is an experimental Pixel 4 port,

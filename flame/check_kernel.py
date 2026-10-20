@@ -42,7 +42,7 @@ def check_kernel(path):
     if start > len(data) or count > (len(data) - start) // 16 or strings > len(data) or string_bytes > len(data) - strings:
         raise ValueError('Symbol/string table outside Mach-O')
     required = {'_flame_fb_l3': 0x4000, '_bootstrap_pagetables': 0x4000}
-    found, functions = {}, {}
+    found, functions, function_sections, boundaries = {}, {}, {}, {}
     for index in range(count):
         name, kind, section_index, _, value = struct.unpack_from('<IBBHQ', data, start + index * 16)
         if name >= string_bytes:
@@ -51,8 +51,11 @@ def check_kernel(path):
         if finish < 0:
             raise ValueError('Unterminated symbol name')
         label = data[strings + name:finish].decode(errors='replace')
+        if not kind & 0xe0 and (kind & 0xe) == 0xe:
+            boundaries.setdefault(section_index, set()).add(value)
         if label in ('_flame_early_translate', '_sweet_early_relocate') and not kind & 0xe0 and (kind & 0xe) == 0xe:
             functions[label] = value
+            function_sections[label] = section_index
         if label not in required or kind & 0xe0 or (kind & 0xe) != 0xe:
             continue
         if label in found or not 1 <= section_index <= len(sections):
@@ -70,6 +73,9 @@ def check_kernel(path):
 
     def instructions(label, limit):
         value = functions[label]
+        next_symbols = [v for v in boundaries[function_sections[label]] if v > value]
+        if next_symbols:
+            limit = min(limit, min(next_symbols) - value)
         for address, _, file_offset, file_bytes in segments:
             if address <= value < address + file_bytes:
                 offset = file_offset + value - address

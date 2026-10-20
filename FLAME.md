@@ -329,8 +329,8 @@ Boot image SHA-256:
 Loader entry PA `0x10148d488`, boot arguments `0x102064000`.
 
 The same verified Pixel accepted a temporary test-05b boot: sending OKAY
-(1.619 s), booting OKAY (4.062 s). Screen evidence and Android return are
-pending. No flash/erase command was issued. The screen still says test 05;
+(1.619 s), booting OKAY (4.062 s). Screen evidence arrived below; Android later
+returned, independently verified through adb. No flash/erase command was issued. The screen still says test 05;
 the new `FLAME` diagnostic lines distinguish this kernel. Preserved images:
 `flame/out/flame-xnu-39444210854.img` (first stage-8 test) and
 `flame/out/flame-xnu-39448117298.img` (alignment fix); both are ignored.
@@ -361,3 +361,28 @@ values. `flame/qemu.Dockerfile` provides an isolated, unprivileged runtime.
 It dumps and decodes framebuffer RAM into text/PNG and records registers,
 exceptions, kernel SHA and QEMU version. This tests generic kernel execution
 and mappings, not Pixel hardware or its display controller.
+
+The known-broken 05b kernel was reproduced on QEMU 8.2.2. The decoded framebuffer
+matches the owner's stage-8 screen and **every** descriptor/stale-PAR value.
+The negative-control run reports `kva_active=0`, zero unknown glyphs, and the
+expected failed translation-check message. Results are under ignored
+`research/flame-qemu/05b-negative-control/`; no hardware result is inferred.
+The runner also reads `kva_active` from simulated RAM, so a later console clear
+cannot hide whether the final page-table handoff completed.
+
+Corrected assembly build:
+[run 39451069381](https://github.com/dimasmds/ios-flame/actions/runs/39451069381),
+commit `12d9abbe1b41c41d0e7b1d45bb8a15dbf4a423c7`, currently compiling.
+
+To reproduce the negative control without USB access:
+
+```sh
+docker build -t ios-flame-qemu:local - < flame/qemu.Dockerfile
+docker run --rm --network none --cpus 2 --memory 6g -v "$PWD:/work" \
+  ios-flame-qemu:local python3 flame/qemu.py \
+  research/flame-kernel/39448117298/kernel.development.sweet \
+  research/flame-qemu/negative-control --reproduce-05b --seconds 10
+```
+
+For a corrected kernel, omit `--reproduce-05b` and supply a fresh output
+directory. The runner then requires the compiled-instruction and alignment checks.
