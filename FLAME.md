@@ -415,3 +415,7 @@ No filesystem, storage, AMFI replacement or later peripheral patch is selected.
 The manifest now covers all 25 source inputs (23 patches and two staging scripts),
 and stage/packer use the same selection function. All extra patches apply cleanly
 to the pinned source; the staged builder and helper scripts pass syntax checks.
+
+Expanded-core build:
+[run 39452744863](https://github.com/dimasmds/ios-flame/actions/runs/39452744863),
+commit `47ee00dc0ba399fe35a799acbea3f0eca13dc002`, currently running.

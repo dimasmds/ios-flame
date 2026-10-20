@@ -29,7 +29,11 @@ and pinned staging helpers0019/0020: 23 patches + two scripts. Newly selected
 code is generic pthread, portable AES, SHA256 and MD5; no storage, filesystem,
 AMFI replacement or later peripheral drivers. Both stage_kernel and packer share
 the explicit manifest selection. All four extra patches apply cleanly; staged
-profile/script syntax checks passed. Submit new profile CI, then rerun QEMU.
+profile/script syntax checks passed. Build run 39452744863 at
+47ee00dc0ba399fe35a799acbea3f0eca13dc002 is running:
+https://github.com/dimasmds/ios-flame/actions/runs/39452744863
+Next: download/verify the artifact, then run QEMU for 75 seconds (allowing the
+normal RTC/provider waits), checking core initialization and any next panic.
 
 An isolated Docker QEMU environment is available (ios-flame-qemu:local), with
 flame/qemu.py and qemu.Dockerfile. The simulator uses a clearly marked ADT with
