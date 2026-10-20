@@ -497,4 +497,30 @@ is accessed. Without --ram-init the packer still supplies no root.
 The emulator's explicit --ram-init PATH option requires a visible PID 1 banner
 and at least two heartbeats, a completed framebuffer handoff and no observed
 panic. Use 150 seconds for this profile; root-wait alone is not a pass.
-Build/emulator results and a new Pixel test are pending.
+[CI run 39506928628](https://github.com/dimasmds/ios-flame/actions/runs/39506928628)
+at commit `14490b8a02a410c15e5e8298390b95070a4cab66` succeeded. Kernel SHA-256:
+`95cc1115f84cf9393af6fea29d7424294c31690dffe4e105f8ce92245e6caabe`.
+Init SHA-256:
+`f5de3714ff95e6a3b9ece30723f677de0f3f74ec5eb985a00c5ae872f0ac9bf1`.
+Its machine code matches independently assembled GNU source bytes, including
+the real three-instruction stack-alignment prologue. All CodeDirectory SHA256
+page hashes independently match the executable.
+
+The 150-second emulator run `research/flame-qemu/ram-init-39506928628/` PASSED:
+PID 1 banner and 17 heartbeats, zero unknown glyphs, `kva_active=1`, no
+translation failure and no panic observed in the snapshot. This demonstrates
+the test program running in the emulator, not on the Pixel yet.
+
+Image `flame/out/flame-xnu-39506928628-ram-init.img` SHA-256:
+`c7b3e2f4f490d56db956f4aa1ed3323122c935f709ac0d6e7ec7a74bcd64f711`.
+Actual linked kernel checks, profile/checksums, loader bounds and all host
+boot-image checks pass. Entry PA `0x101491488`; RAM program
+`0x102070000+0x8000`; boot arguments `0x10207c000`; top `0x102080000`.
+
+**Hardware test 05d:** after verifying Android ready on the unlocked flame and
+matching the exact image hash, temporary `fastboot boot` was accepted: sending
+65536 KB OKAY (1.615s), booting OKAY (4.060s), total 5.707s. Ignored transcript:
+research/flame-device/probe-05d-fastboot.txt. **Photo and Android return are
+pending.** The owner was asked to capture after about 90 seconds. Bootloader
+acceptance is not evidence of the PID 1 probe executing on hardware. No flash
+or erase commands were issued.

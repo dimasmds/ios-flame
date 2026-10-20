@@ -2,7 +2,29 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: test 05c photo confirms XNU reaches root-device discovery on Pixel.**
+**Latest: RAM-only userspace test 05d temporarily loaded; awaiting photo.**
+CI 39506928628 (14490b8a02a410c15e5e8298390b95070a4cab66) succeeded. The
+150-second QEMU test research/flame-qemu/ram-init-39506928628 PASSED: visible
+PID 1 banner, 17 heartbeats, kva_active=1, zero unknown glyphs, no panic observed.
+Actual CI init bytes match independently assembled GNU code; stack-alignment
+instructions and all ad-hoc CodeDirectory page hashes verified. Source/profile,
+kernel table/instruction, payload and all boot-image host checks pass.
+
+Image flame/out/flame-xnu-39506928628-ram-init.img SHA256:
+c7b3e2f4f490d56db956f4aa1ed3323122c935f709ac0d6e7ec7a74bcd64f711.
+Kernel SHA256 95cc1115f84cf9393af6fea29d7424294c31690dffe4e105f8ce92245e6caabe.
+Init SHA256 f5de3714ff95e6a3b9ece30723f677de0f3f74ec5eb985a00c5ae872f0ac9bf1.
+Entry PA 0x101491488, RAM init 0x102070000+0x8000, boot args 0x10207c000,
+top 0x102080000. Verified flame/boot_completed=1/unlocked and exact image hash
+before another `fastboot boot`: sending 65536 KB OKAY (1.615s), booting OKAY
+(4.060s), total 5.707s. Transcript research/flame-device/probe-05d-fastboot.txt.
+No flash/erase/persistent filesystem writes. Bootloader acceptance alone does
+not prove userspace on the Pixel. Owner asked for photo after about 90 seconds,
+ideally showing `init running as PID 1` and repeated `SWEET init: still alive`.
+Await photo before any further reboot; then verify Android return. This source
+program is not Apple launchd/iOS userland. No new firmware was downloaded.
+
+**Completed test 05c: XNU reaches root-device discovery on Pixel.**
 Owner supplied flame-ios-7.jpeg: `Waiting on ... IOMedia ... Apple_HFS` is visible,
 along with libpthread registration, platform expert registration, boot CPU 0
 registered / SGI1 verified / initialization complete, MAC/mbinit, DLIL SUM16 and
@@ -21,7 +43,7 @@ the preserved CI 39452744863 image SHA256 matched the value below. The same
 verified target accepted `fastboot boot`: sending 65536 KB OKAY (1.602s), booting
 OKAY (4.053s), total 5.686s. Transcript:
 research/flame-device/probe-05c-fastboot.txt. No flash/erase commands.
-Next profile in progress: RAM-only mockfs root containing the source-built
+RAM-init profile: RAM-only mockfs root containing the source-built
 static tools/sweet-init.S syscall/heartbeat program, not Apple launchd. Audited
 0021/0022/0024 mockfs and missing-IOStorageFamily fixes plus 0025's no-entitlements
 AMFI interface (all entitlement requests denied; kernel page hashes retained).
@@ -32,7 +54,9 @@ source/profile checks and staged build-script syntax pass. Workflow now assemble
 and packages the static arm64 test program and checksums it. Packer's explicit
 --ram-init embeds only that verified artifact; qemu --ram-init requires visible
 PID 1 and at least two heartbeats, no panic, plus final framebuffer handoff.
-CI build and 150-second emulator validation are next; no new Pixel boot yet.
+CI run 39506928628 at 14490b8a02a410c15e5e8298390b95070a4cab66 succeeded:
+https://github.com/dimasmds/ios-flame/actions/runs/39506928628
+150-second emulator validation passed; actual Pixel test 05d is pending as above.
 Persistent storage access and destructive writes remain outside authorization.
 
 05b reached stage 8 and printed aligned L1/L2/L3 descriptors, then FINAL FB
@@ -52,7 +76,7 @@ pthread_shims.c:318 because the first profile excludes the pthread provider.
 This is simulation evidence, not a new Pixel test. Kernel/image hashes below
 in FLAME.md; checked image preserved flame/out/flame-xnu-39451069381.img.
 
-Next profile now selects 0001–0020 plus 0023 and 0027, the single Pixel0099 patch,
+The previous core-only profile selected 0001–0020 plus 0023 and 0027, Pixel0099,
 and pinned staging helpers0019/0020: 23 patches + two scripts. Newly selected
 code is generic pthread, portable AES, SHA256 and MD5; no storage, filesystem,
 AMFI replacement or later peripheral drivers. Both stage_kernel and packer share
@@ -66,7 +90,7 @@ registration, CPU SGI1 self-test, DLIL/Skywalk self-tests and kernel threads
 scheduled. It reaches `Waiting on ... IOMedia ... Apple_HFS` root discovery.
 Root wait is expected: no storage driver or root filesystem is supplied.
 
-**Current hardware test 05c:**
+**Completed hardware test 05c:**
 flame/out/flame-xnu-39452744863.img, SHA256
 d6563015cd360c31504b70172733bd0321562be3719aeab7a783a3e3e5a6d1e3.
 Kernel SHA256 f6813708e9cb0fd402f2bbcbeee2b3b20247d8fe2c6eaf948952bad61b23d494.
