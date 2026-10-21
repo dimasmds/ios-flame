@@ -623,9 +623,10 @@ flash, erase or persistent phone storage writes occurred during the retry.
 The owner replied "yes i confirm that" after the 05e retry capture request.
 This is recorded as contextual confirmation of the expected HFS/file-read/
 heartbeat output, not as a hardware photo or separate exact-line transcription.
-The owner was told to restart Android; adb return verification is pending.
+The owner restarted Android; adb now verifies flame, boot_completed=1 and
+unlocked before probe 06.
 
-## UFS register snapshot probe 06 (prepared, not hardware-tested)
+## UFS register snapshot probe 06 (temporarily loaded, evidence pending)
 
 ```sh
 bash flame/build.sh 06
@@ -651,7 +652,12 @@ unproven. A snapshot cannot establish DMA safety, link usability or media access
 
 Prepared image SHA-256:
 `7759dca7ed16a7500f780a0cf163761bb787517dd4c9b00392bf243ce23b5b67`.
-It has not been loaded. Verify Android return before the next temporary boot.
+The owner reported Android ready, and adb verified flame, boot_completed=1 and
+unlocked. The preserved image hash matched. Temporary fastboot boot accepted:
+sending 65536 KB OKAY (1.617s), booting OKAY (3.324s), total 4.976s. Ignored
+transcript: research/flame-device/probe-06-fastboot.txt. **Photo/register evidence
+and Android return are pending.** Capture immediately within the 120s window;
+bootloader acceptance is not proof of execution or valid register reads.
 
 The inherited 0028 storage driver remains excluded. Audit found assumptions
 about LUN 0, 4 KiB blocks, bootloader state and identity DMA; the GPT parser also

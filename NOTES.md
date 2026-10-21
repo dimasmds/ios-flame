@@ -2,16 +2,27 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: owner contextually confirms HFS RAM-root success after 05e retry.**
+**Latest: register-only UFS probe 06 temporarily loaded; awaiting photo.**
+Owner reported Android ready; adb verified flame / boot_completed=1 / unlocked
+and recorded 05e retry return in research/flame-device/probe-05e-retry-android-return.json.
+Rechecked preserved flame/out/flame-ufs-registers-06.img SHA256 below, then
+`fastboot boot` accepted: sending 65536 KB OKAY (1.617s), booting OKAY (3.324s),
+total 4.976s. Transcript research/flame-device/probe-06-fastboot.txt. No source
+changes, flash/erase, DMA or media commands. Owner asked to photograph the
+purple diagnostic immediately (120s capture window), not wait two minutes.
+Bootloader acceptance alone is not execution/register evidence. Await photo
+of CAP/VERSION/HCE/HCS/64-bit DMA/list/run/doorbells, or precondition/exception
+text, then verify Android return. Do not infer DMA/media usability from this.
+
+**Completed 05e: owner contextually confirms HFS RAM-root success after retry.**
 Owner replied "yes i confirm that" to the request to capture file-read-verified
 and heartbeat lines. Treated as confirmation of the expected HFS test output;
 no photo or separate exact-line transcription was supplied. Do not describe
 it as independently photographed/decoded hardware output. Report:
 research/flame-device/probe-05e-retry-owner-report.json. Owner told to restart
-Android; adb currently cannot reach it, so retry Android return is pending.
-No more hardware boots until Android return is verified.
+Android; adb now verifies retry Android return as recorded above.
 
-**Ready next: register-only UFS probe 06, not yet loaded.**
+**Current hardware test: register-only UFS probe 06.**
 Built flame/out/flame-probe-06.img SHA256
 7759dca7ed16a7500f780a0cf163761bb787517dd4c9b00392bf243ce23b5b67.
 This is a bare-metal snapshot of ten UFSHCI registers only; no commands,
@@ -24,9 +35,8 @@ both Google DTBs pass; wrong UFS address/compatibility fixtures rejected.
 Actual linked ufs_read32 is DSB/LDR/DSB/RET, no store. All existing host
 parser/map/RAM/MMU/loader/boot-image checks pass. Error capture includes FAR
 and 120s delay. Normal diagnostic requests reset after 120s; reset cause still
-not established. No new macOS kernel build needed. Next action: verify Android
-return, then temporarily boot 06 and capture CAP/VERSION/HCE/HCS/64-bit DMA,
-request-list bases/run/doorbells; do not infer DMA/media usability from them.
+not established. No new macOS kernel build needed. Image now temporarily
+loaded; await capture and verify Android return as above.
 
 Storage audit: inherited 0028 remains EXCLUDED from the kernel profile. It
 assumes LUN 0, 4KiB device blocks, bootloader link state and identity DMA. Its
@@ -46,7 +56,7 @@ Rechecked the same preserved image hash below and temporarily booted it again:
 sending 65536 KB OKAY (1.616s), booting OKAY (4.111s), total 5.766s. Transcript:
 research/flame-device/probe-05e-retry-fastboot.txt. No source/image changes,
 flash/erase or persistent phone storage writes. Owner contextual confirmation
-is recorded above; subsequent Android return remains pending.
+is recorded above; subsequent Android return is now verified.
 Corrected CI 39515112847 at f16d6c039a71a0663b71c35e2392c19ab3b6e0d8 succeeded.
 150-second QEMU test research/flame-qemu/hfs-root-39515112847 PASSED: HFS mounted
 FlameRAM, init PID 1, `FLAME HFS: file read verified`, 17 heartbeats, zero
