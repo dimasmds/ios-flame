@@ -2,7 +2,42 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: repeated identical HFS+ RAM-root test 05e at owner's request.**
+**Latest: owner contextually confirms HFS RAM-root success after 05e retry.**
+Owner replied "yes i confirm that" to the request to capture file-read-verified
+and heartbeat lines. Treated as confirmation of the expected HFS test output;
+no photo or separate exact-line transcription was supplied. Do not describe
+it as independently photographed/decoded hardware output. Report:
+research/flame-device/probe-05e-retry-owner-report.json. Owner told to restart
+Android; adb currently cannot reach it, so retry Android return is pending.
+No more hardware boots until Android return is verified.
+
+**Ready next: register-only UFS probe 06, not yet loaded.**
+Built flame/out/flame-probe-06.img SHA256
+7759dca7ed16a7500f780a0cf163761bb787517dd4c9b00392bf243ce23b5b67.
+This is a bare-metal snapshot of ten UFSHCI registers only; no commands,
+controller register writes, DMA, partition discovery or media access. Validates
+EL1/MMU+data cache off and exact live platform/UFS DT path, compatible and
+0x01d84000+0x2500 reg profile before MMIO. Google installed-kernel ufshci.h
+confirms offsets/cap bits (saved ignored research/flame-sources/ufshci.h).
+Host callback tests prove the exact ten read addresses and returned values;
+both Google DTBs pass; wrong UFS address/compatibility fixtures rejected.
+Actual linked ufs_read32 is DSB/LDR/DSB/RET, no store. All existing host
+parser/map/RAM/MMU/loader/boot-image checks pass. Error capture includes FAR
+and 120s delay. Normal diagnostic requests reset after 120s; reset cause still
+not established. No new macOS kernel build needed. Next action: verify Android
+return, then temporarily boot 06 and capture CAP/VERSION/HCE/HCS/64-bit DMA,
+request-list bases/run/doorbells; do not infer DMA/media usability from them.
+
+Storage audit: inherited 0028 remains EXCLUDED from the kernel profile. It
+assumes LUN 0, 4KiB device blocks, bootloader link state and identity DMA. Its
+GPT parser lacks CRC/capacity validation and uses overflow-prone nent*esz.
+It must not be enabled unchanged. Next actual media driver needs negotiated
+block size/LUN/capacity, validated DMA/addressing/translation and a bounded CRC-
+checked GPT parser, while rejecting all writes. No read-only media takeover or
+persistent phone writes have been performed.
+
+**Historical 05e retry boot and build details:**
+**Identical HFS+ RAM-root test 05e repeated at owner's request.**
 Owner had not seen the expected output and requested a retry. Before retry,
 adb verified Android had returned: flame / boot_completed=1 / unlocked / boot
 reason bootloader; log research/flame-device/probe-05e-android-return.json.
@@ -10,10 +45,8 @@ The first 05e run has no screen evidence; do not infer HFS success or failure.
 Rechecked the same preserved image hash below and temporarily booted it again:
 sending 65536 KB OKAY (1.616s), booting OKAY (4.111s), total 5.766s. Transcript:
 research/flame-device/probe-05e-retry-fastboot.txt. No source/image changes,
-flash/erase or persistent phone storage writes. Await retry screen evidence
-and then Android return; owner asked to capture after about two minutes even
-if it stops before the expected file-read message. Do not reboot again before
-that observation.
+flash/erase or persistent phone storage writes. Owner contextual confirmation
+is recorded above; subsequent Android return remains pending.
 Corrected CI 39515112847 at f16d6c039a71a0663b71c35e2392c19ab3b6e0d8 succeeded.
 150-second QEMU test research/flame-qemu/hfs-root-39515112847 PASSED: HFS mounted
 FlameRAM, init PID 1, `FLAME HFS: file read verified`, 17 heartbeats, zero
@@ -33,10 +66,9 @@ matching the image hash, temporary `fastboot boot` accepted: sending 65536 KB
 OKAY (1.612s), booting OKAY (4.103s), total 5.748s. Transcript:
 research/flame-device/probe-05e-fastboot.txt. No flash/erase or persistent phone
 storage writes. Owner asked to capture after ~120 seconds, ideally showing
-`FLAME HFS: file read verified` and heartbeats. Hardware HFS mount/read and
-retry Android return are still pending; do not infer those from fastboot
-acceptance. The initial 05e Android return is verified above.
-Await owner's screen evidence before further reboot. No Apple userland supplied.
+`FLAME HFS: file read verified` and heartbeats. The owner confirms the expected
+retry output contextually, as recorded above; retry Android return is pending.
+The initial 05e Android return is verified above. No Apple userland supplied.
 
 The larger Image exposed a host-only LZ4 decoder's old 32 MiB default cap.
 Raised it to match the existing bounded loader's 64 MiB Image maximum; the

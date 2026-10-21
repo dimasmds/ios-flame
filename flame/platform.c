@@ -30,3 +30,14 @@ int platform_check(const struct dt *dt)
            cells(dt, "/soc/timer", "interrupts", timer, 12) &&
            cells(dt, "/soc/timer", "clock-frequency", frequency, 1);
 }
+
+int platform_ufs_check(const struct dt *dt)
+{
+    const uint32_t reg[] = {0x01d84000, 0x2500};
+    uint32_t length;
+    const uint8_t *compat = dt_prop(dt, "/soc/ufshc@1d84000", "compatible", &length);
+    const char want[] = "qcom,ufshc";
+    if (!compat || length != sizeof(want)) return 0;
+    for (unsigned i = 0; i < sizeof(want); i++) if (compat[i] != (uint8_t)want[i]) return 0;
+    return platform_check(dt) && cells(dt, "/soc/ufshc@1d84000", "reg", reg, 2);
+}

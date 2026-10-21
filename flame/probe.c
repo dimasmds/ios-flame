@@ -1,4 +1,4 @@
-/* First Pixel 4 experiment: CPU/FDT inspection, no storage or peripheral drivers. */
+/* Pixel diagnostics and bounded temporary kernel handoff. */
 #include <stdint.h>
 #include "fdt.h"
 #include "memory.h"
@@ -6,6 +6,7 @@
 #include "mmu.h"
 #include "loader.h"
 #include "platform.h"
+#include "ufs.h"
 #include "../shim/font.h"
 
 #define READ(r) ({ uint64_t v; __asm__ volatile("mrs %0, " r : "=r"(v)); v; })
@@ -81,10 +82,26 @@ void __attribute__((noreturn)) probe_exception(void)
     line("EXCEPTION - RESETTING");
     if (READ("CurrentEL") == 8) { hex("ESR", READ("esr_el2")); hex("ELR", READ("elr_el2")); }
     else { hex("ESR", READ("esr_el1")); hex("ELR", READ("elr_el1")); }
+#ifdef PROBE_UFS
+    if (READ("CurrentEL") == 8) hex("FAR", READ("far_el2"));
+    else hex("FAR", READ("far_el1"));
+    wait_seconds(120); reset();
+#else
     wait_seconds(5); reset();
+#endif
 }
 
 static uint64_t cells64(const uint8_t *p) { return (uint64_t)dt_be32(p) << 32 | dt_be32(p + 4); }
+
+#ifdef PROBE_UFS
+static uint32_t __attribute__((noinline)) ufs_read32(uintptr_t address)
+{
+    __asm__ volatile("dsb sy" ::: "memory");
+    uint32_t value = *(const volatile uint32_t *)address;
+    __asm__ volatile("dsb sy" ::: "memory");
+    return value;
+}
+#endif
 
 void probe_main(uintptr_t fdt_address)
 {
@@ -105,7 +122,31 @@ void probe_main(uintptr_t fdt_address)
     }
     screen = (volatile uint32_t *)(uintptr_t)cells64(splash);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) screen[i] = 0xff180820;
-#ifdef PROBE_MAP
+#ifdef PROBE_UFS
+    line("PIXEL 4 / FLAME - UFS REG PROBE 06");
+    line("READ-ONLY CONTROLLER REGISTERS");
+    hex("EL", READ("CurrentEL") >> 2);
+    uint64_t sctlr = READ("sctlr_el1");
+    hex("SCTLR", sctlr);
+    if (READ("CurrentEL") != 4 || (sctlr & 5) || !platform_ufs_check(&dt))
+        line("UFS PRECONDITIONS FAILED - NO ACCESS");
+    else {
+        line("LIVE DT METADATA VERIFIED");
+        struct ufs_report ufs;
+        ufs_capture(ufs_read32, &ufs);
+        hex("UFS BASE", FLAME_UFS_BASE);
+        hex("CAP", ufs.cap); hex("VERSION", ufs.version);
+        hex("HCE", ufs.hce); hex("HCS", ufs.hcs);
+        hex("64 BIT DMA CAP", (ufs.cap >> 24) & 1);
+        hex("TRANSFER SLOTS", (ufs.cap & 31) + 1);
+        hex("LIST BASE", (uint64_t)ufs.list_hi << 32 | ufs.list_lo);
+        hex("LIST RUN", ufs.run); hex("DOORBELL", ufs.doorbell);
+        hex("TASK RUN", ufs.task_run); hex("TASK DOORBELL", ufs.task_doorbell);
+        line("REGISTER SNAPSHOT COMPLETE");
+    }
+    line("NO REGISTER WRITES / NO DMA");
+    line("NO STORAGE COMMANDS OR MEDIA ACCESS");
+#elif defined(PROBE_MAP)
 #ifdef PROBE_KERNEL
     line("PIXEL 4 / FLAME - XNU TEST 05");
     line("EARLY CONSOLE - NO STORAGE DRIVER");

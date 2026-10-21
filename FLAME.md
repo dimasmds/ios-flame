@@ -1,8 +1,9 @@
 # Pixel 4 (flame) bring-up
 
 This branch starts a new SM8150 port. **XNU runs a static userspace test program
-from RAM on the Pixel, confirmed by the owner's heartbeat report. Apple iOS
-userland has not booted.**
+from RAM on the Pixel. The owner also confirms the HFS RAM-root/file-read test
+contextually; no hardware photo of that result is supplied. Apple iOS userland
+has not booted.**
 The inherited README describes the Redmi devices, not Pixel support.
 
 ## Observed device
@@ -617,3 +618,43 @@ hash matched. Sending 65536 KB OKAY (1.616s), booting OKAY (4.111s), total
 The initial run has no screen evidence, so its HFS result is unknown. The retry
 screen and subsequent Android return are pending. No source/image changes,
 flash, erase or persistent phone storage writes occurred during the retry.
+
+
+The owner replied "yes i confirm that" after the 05e retry capture request.
+This is recorded as contextual confirmation of the expected HFS/file-read/
+heartbeat output, not as a hardware photo or separate exact-line transcription.
+The owner was told to restart Android; adb return verification is pending.
+
+## UFS register snapshot probe 06 (prepared, not hardware-tested)
+
+```sh
+bash flame/build.sh 06
+python3 flame/check.py 06
+```
+
+This separate bare-metal probe reads ten UFSHCI registers after validating the
+live platform and /soc/ufshc@1d84000 metadata against Google's source:
+compatible qcom,ufshc and reg 0x01d84000+0x2500. EL1 with MMU/data cache off is
+required. Offsets and capability fields are checked against the
+[installed Google kernel's ufshci.h](https://android.googlesource.com/kernel/msm/+/6ef255005ceaae118d35fba8585de7ba1d4d5efb/drivers/scsi/ufs/ufshci.h).
+It reports CAP, VERSION, HCE, HCS, 64-bit addressing capability, transfer slots,
+request-list base, run/stop and transfer/task doorbells. No register writes,
+DMA, UFS commands, partition discovery or media reads/writes occur.
+
+Host tests exercise the actual capture routine through a mock reader, require
+exactly the ten whitelisted addresses, accept both Google DTBs and reject wrong
+controller address/compatibility. The actual MMIO reader disassembles to
+DSB/LDR/DSB/RET with no store. Existing map/RAM/MMU/loader and full boot-image
+checks pass. Exception capture prints ESR/ELR/FAR and waits 120 seconds; normal
+completion also requests reset after 120 seconds. The actual reset cause remains
+unproven. A snapshot cannot establish DMA safety, link usability or media access.
+
+Prepared image SHA-256:
+`7759dca7ed16a7500f780a0cf163761bb787517dd4c9b00392bf243ce23b5b67`.
+It has not been loaded. Verify Android return before the next temporary boot.
+
+The inherited 0028 storage driver remains excluded. Audit found assumptions
+about LUN 0, 4 KiB blocks, bootloader state and identity DMA; the GPT parser also
+lacks CRC/capacity checks and has overflow-prone entry-count multiplication.
+A Pixel media driver needs those addressed before any takeover. Current kernel
+profiles continue to contain no UFS controller driver or persistent write path.

@@ -28,13 +28,13 @@ def node(name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", nargs="?", choices=["01", "02", "03", "04", "05"], default="01")
+    parser.add_argument("mode", nargs="?", choices=["01", "02", "03", "04", "05", "06"], default="01")
     mode = parser.parse_args().mode
     with tempfile.TemporaryDirectory() as tmp:
         libpath = Path(tmp) / "fdt.so"
         subprocess.run(["gcc", "-shared", "-fPIC", "-Wall", "-Wextra", "-Werror",
                         str(ROOT / "fdt.c"), str(ROOT / "memory.c"), str(ROOT / "ram.c"), str(ROOT / "mmu.c"),
-                        str(ROOT / "loader.c"), str(ROOT / "platform.c"), "-o", str(libpath)], check=True)
+                        str(ROOT / "loader.c"), str(ROOT / "platform.c"), str(ROOT / "ufs.c"), "-o", str(libpath)], check=True)
         lib = ctypes.CDLL(str(libpath))
 
         class DT(ctypes.Structure):
@@ -49,6 +49,20 @@ def main():
         check_ram(lib)
         check_mmu(lib)
         check_loader(lib)
+        # Exercise the actual capture routine with a mock bus. It may only
+        # load these ten documented registers, once each, without writes.
+        addresses = [0x1d84000 + off for off in (0, 8, 0x34, 0x30, 0x50, 0x54, 0x60, 0x58, 0x80, 0x78)]
+        values = {address: 0xf0000000 + i for i, address in enumerate(addresses)}
+        reads = []
+        reader_type = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_size_t)
+        def read32(address):
+            reads.append(address)
+            return values.get(address, 0)
+        reader = reader_type(read32)
+        report = (ctypes.c_uint32 * 10)()
+        lib.ufs_capture.argtypes = [reader_type, ctypes.POINTER(ctypes.c_uint32)]
+        lib.ufs_capture(reader, report)
+        assert reads == addresses and list(report) == list(values.values())
 
         def lookup(data, path, key=b"reg"):
             buf = ctypes.create_string_buffer(data)
@@ -87,6 +101,13 @@ def main():
             raw = ctypes.create_string_buffer(blob)
             assert lib.dt_open(ctypes.byref(dt), raw, len(blob))
             assert lib.platform_check(ctypes.byref(dt))
+            assert lib.platform_ufs_check(ctypes.byref(dt))
+            for pattern in (bytes.fromhex('01d8400000002500'), b'qcom,ufshc\0'):
+                changed_ufs = bytearray(blob)
+                changed_ufs[changed_ufs.index(pattern)] ^= 1
+                raw_ufs_bad = ctypes.create_string_buffer(bytes(changed_ufs))
+                assert lib.dt_open(ctypes.byref(dt), raw_ufs_bad, len(blob))
+                assert not lib.platform_ufs_check(ctypes.byref(dt))
             changed = bytearray(blob)
             position = changed.index(bytes.fromhex('17a000000001000017a6000000100000'))
             changed[position] ^= 1
@@ -95,6 +116,7 @@ def main():
             assert not lib.platform_check(ctypes.byref(dt))
             offset += size
             count += 1
+        print("PASS: ten whitelisted UFS register reads; both Google DTBs; wrong controller address/compatibility rejected")
 
     image_path = ROOT / f"out/flame-probe-{mode}.img"
     image = image_path.read_bytes()

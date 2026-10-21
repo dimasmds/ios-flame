@@ -3,7 +3,8 @@
 **Pixel 4 experiment (`flame`):** XNU runs a static userspace test program from
 RAM on the Pixel; the owner confirms its console heartbeat. Boot CPU
 registration, the SGI1 interrupt self-test and kernel thread scheduling complete.
-Apple iOS userland has not booted.
+The owner also confirms the HFS RAM-root/file-read test. Apple iOS userland
+has not booted.
 See [FLAME.md](FLAME.md) for build steps, hardware evidence, and current status.
 The Redmi instructions below do not apply to a Pixel.
 
