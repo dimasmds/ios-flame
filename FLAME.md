@@ -664,3 +664,24 @@ about LUN 0, 4 KiB blocks, bootloader state and identity DMA; the GPT parser als
 lacks CRC/capacity checks and has overflow-prone entry-count multiplication.
 A Pixel media driver needs those addressed before any takeover. Current kernel
 profiles continue to contain no UFS controller driver or persistent write path.
+
+
+The owner's flame-ios-8.jpeg confirms **probe 06 completed on hardware**:
+CAP 0x1587031f, VERSION 0x300 (UFSHCI 3.0), HCE 1, HCS 0x10f, 64-bit addressing
+advertised, 32 slots, transfer list running, both doorbells zero and task list
+stopped. The bootloader's request list is below 4 GiB. EL1/SCTLR 0xc00808 and
+LIVE DT METADATA VERIFIED are visible. No DMA or media commands occurred.
+The owner reported Android home screen and adb independently verifies return;
+boot reason watchdog, reset cause unresolved. Raw transcribed values and return
+logs remain ignored under research/flame-device.
+
+The owner is unavailable until night. Further work stays in source, host tests,
+CI and emulation; the phone remains on Android. Read-only sysfs geometry/HCTL
+inspection was blocked for the unprivileged shell. Resolving userdata to sda15
+does not establish the actual UFS LUN, block size or DMA translation.
+
+Pinned Google ufshcd.c selects SCSI command type 0 and NOP/device-management
+command type 2 for UFSHCI 3.0; its special type-1 case is UFSHCI 2.0. Inherited
+0028 hard-codes type 1. Offline packet/GPT work must handle these version rules
+and bounds before introducing any transport. No new hardware test is scheduled
+while the owner is unavailable.
