@@ -607,3 +607,13 @@ Ignored transcript: research/flame-device/probe-05e-fastboot.txt.
 **Screen evidence and Android return are pending.** The owner was asked to
 capture after about 120 seconds. No flash/erase or persistent phone storage
 writes were issued. This remains a source-built probe, not Apple iOS userland.
+
+
+At the owner's request, the identical 05e image was temporarily booted again.
+Before retry, adb verified the first run had returned to Android (flame,
+boot_completed=1, unlocked, boot reason bootloader), and the preserved image
+hash matched. Sending 65536 KB OKAY (1.616s), booting OKAY (4.111s), total
+5.766s. Transcript: ignored research/flame-device/probe-05e-retry-fastboot.txt.
+The initial run has no screen evidence, so its HFS result is unknown. The retry
+screen and subsequent Android return are pending. No source/image changes,
+flash, erase or persistent phone storage writes occurred during the retry.

@@ -2,7 +2,18 @@
 
 ## Pixel 4 local handoff — 2026-10-21 (read before inherited Redmi notes)
 
-**Latest: HFS+ RAM-root test 05e temporarily loaded; awaiting screen evidence.**
+**Latest: repeated identical HFS+ RAM-root test 05e at owner's request.**
+Owner had not seen the expected output and requested a retry. Before retry,
+adb verified Android had returned: flame / boot_completed=1 / unlocked / boot
+reason bootloader; log research/flame-device/probe-05e-android-return.json.
+The first 05e run has no screen evidence; do not infer HFS success or failure.
+Rechecked the same preserved image hash below and temporarily booted it again:
+sending 65536 KB OKAY (1.616s), booting OKAY (4.111s), total 5.766s. Transcript:
+research/flame-device/probe-05e-retry-fastboot.txt. No source/image changes,
+flash/erase or persistent phone storage writes. Await retry screen evidence
+and then Android return; owner asked to capture after about two minutes even
+if it stops before the expected file-read message. Do not reboot again before
+that observation.
 Corrected CI 39515112847 at f16d6c039a71a0663b71c35e2392c19ab3b6e0d8 succeeded.
 150-second QEMU test research/flame-qemu/hfs-root-39515112847 PASSED: HFS mounted
 FlameRAM, init PID 1, `FLAME HFS: file read verified`, 17 heartbeats, zero
@@ -23,7 +34,8 @@ OKAY (1.612s), booting OKAY (4.103s), total 5.748s. Transcript:
 research/flame-device/probe-05e-fastboot.txt. No flash/erase or persistent phone
 storage writes. Owner asked to capture after ~120 seconds, ideally showing
 `FLAME HFS: file read verified` and heartbeats. Hardware HFS mount/read and
-Android return are still pending; do not infer those from fastboot acceptance.
+retry Android return are still pending; do not infer those from fastboot
+acceptance. The initial 05e Android return is verified above.
 Await owner's screen evidence before further reboot. No Apple userland supplied.
 
 The larger Image exposed a host-only LZ4 decoder's old 32 MiB default cap.
